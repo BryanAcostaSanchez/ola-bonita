@@ -232,5 +232,9 @@ create policy "staff can manage specialist services" on public.specialist_servic
 create policy "staff can manage business hours" on public.business_hours for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy "staff can manage specialist hours" on public.specialist_hours for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
+grant usage on schema public to anon, authenticated;
+grant select on public.service_categories, public.services, public.business_hours to anon;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+
 -- Seed the singleton settings row after the schema is installed.
 insert into public.business_settings (booking_deposit_enabled, booking_deposit_percent) values (true, 30);

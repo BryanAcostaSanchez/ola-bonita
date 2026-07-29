@@ -5,7 +5,10 @@ insert into public.service_categories (name, slug, sort_order) values
   ('Uñas y pies', 'unas-y-pies', 3),
   ('Lifting y cejas', 'lifting-y-cejas', 4),
   ('Extensiones de pestañas', 'extensiones-de-pestanas', 5),
-  ('Depilación', 'depilacion', 6);
+  ('Depilación', 'depilacion', 6)
+on conflict (slug) do update set
+  name = excluded.name,
+  sort_order = excluded.sort_order;
 
 insert into public.services (category_id, name, duration_minutes, price_cents, online_bookable, sort_order)
 select category.id, service.name, service.duration_minutes, service.price_cents, service.online_bookable, service.sort_order
@@ -34,7 +37,7 @@ from (
     ('unas-y-pies', 'Softgel, polygel or acrylic extension', 70, 50000, true, 5),
     ('unas-y-pies', 'Basic pedicure', 60, 40000, true, 6),
     ('unas-y-pies', 'Luxury spa pedicure', 80, 55000, true, 7),
-    ('unas-y-pies', "Luxury gentleman's pedicure", 60, 45000, true, 8),
+    ('unas-y-pies', 'Luxury gentleman''s pedicure', 60, 45000, true, 8),
     ('unas-y-pies', 'Gel change', 40, 25000, true, 9),
     ('unas-y-pies', 'Gel removal', 30, 10000, true, 10),
     ('unas-y-pies', 'Softgel removal', 45, 15000, true, 11),
