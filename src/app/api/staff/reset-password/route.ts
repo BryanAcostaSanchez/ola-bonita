@@ -32,7 +32,9 @@ export async function POST(request: Request) {
     if (!authUser.user?.email) return NextResponse.json({ error: "Este acceso no tiene correo registrado." }, { status: 422 });
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.olabonita.shop";
-    const { error } = await admin.auth.resetPasswordForEmail(authUser.user.email, { redirectTo: `${appUrl}/app/acceso` });
+    const recoveryUrl = new URL("/auth/callback", appUrl);
+    recoveryUrl.searchParams.set("next", "/app/acceso?flow=recovery");
+    const { error } = await admin.auth.resetPasswordForEmail(authUser.user.email, { redirectTo: recoveryUrl.toString() });
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -27,9 +27,11 @@ export async function POST(request: Request) {
     if ((count ?? 0) >= 10) return NextResponse.json({ error: "El equipo ya alcanzó el límite de 10 accesos activos." }, { status: 422 });
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.olabonita.shop";
+    const activationUrl = new URL("/auth/callback", appUrl);
+    activationUrl.searchParams.set("next", "/app/acceso?flow=invite");
     const { data, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName },
-      redirectTo: `${appUrl}/app/acceso`,
+      redirectTo: activationUrl.toString(),
     });
     if (inviteError) return NextResponse.json({ error: inviteError.message }, { status: 422 });
 
