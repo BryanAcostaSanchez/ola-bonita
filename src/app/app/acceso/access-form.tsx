@@ -25,7 +25,7 @@ export function AccessForm({ canCreateFirstOwner }: { canCreateFirstOwner: boole
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName }, emailRedirectTo: `${window.location.origin}/app` },
+        options: { data: { full_name: fullName } },
       });
       if (error) setMessage(error.message);
       else if (data.session) window.location.assign("/app");
