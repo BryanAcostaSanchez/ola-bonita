@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   if (!booking) return NextResponse.json({ error: "No pudimos crear la reserva." }, { status: 422 });
   const admin = createAdminClient();
   const { data: emailBooking } = await admin.from("bookings").select("id, public_code, starts_at, price_cents, deposit_due_cents, customer:customers(full_name,email), service:services(name), specialist:profiles(full_name)").eq("id", booking.booking_id).single();
-  if (emailBooking) void sendBookingEmails(emailBooking as never).catch(() => undefined);
+  if (emailBooking) await sendBookingEmails(emailBooking as never).catch(() => undefined);
   if (booking.deposit_due_cents === 0) return NextResponse.json({ booking }, { status: 201, headers: { "Cache-Control": "no-store" } });
   try {
     const { data: paymentBooking, error: bookingError } = await admin.from("bookings").select("id, public_code, price_cents, deposit_due_cents, customer:customers(full_name, email, phone), service:services(name)").eq("id", booking.booking_id).single();
