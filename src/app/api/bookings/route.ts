@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createCheckoutPreference } from "@/lib/mercadopago";
 import { createServerClient } from "@/lib/supabase/server";
+import { sendBookingEmails } from "@/lib/transactional-email";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
@@ -20,9 +21,12 @@ export async function POST(request: Request) {
   });
   if (error) return NextResponse.json({ error: error.message.includes("just booked") ? "Ese horario acaba de ocuparse. Elige otro." : "No pudimos crear la reserva." }, { status: 422 });
   const booking = data?.[0];
-  if (!booking || booking.deposit_due_cents === 0) return NextResponse.json({ booking }, { status: 201, headers: { "Cache-Control": "no-store" } });
+  if (!booking) return NextResponse.json({ error: "No pudimos crear la reserva." }, { status: 422 });
+  const admin = createAdminClient();
+  const { data: emailBooking } = await admin.from("bookings").select("id, public_code, starts_at, price_cents, deposit_due_cents, customer:customers(full_name,email), service:services(name), specialist:profiles(full_name)").eq("id", booking.booking_id).single();
+  if (emailBooking) void sendBookingEmails(emailBooking as never).catch(() => undefined);
+  if (booking.deposit_due_cents === 0) return NextResponse.json({ booking }, { status: 201, headers: { "Cache-Control": "no-store" } });
   try {
-    const admin = createAdminClient();
     const { data: paymentBooking, error: bookingError } = await admin.from("bookings").select("id, public_code, price_cents, deposit_due_cents, customer:customers(full_name, email, phone), service:services(name)").eq("id", booking.booking_id).single();
     if (bookingError || !paymentBooking) throw new Error("Booking missing");
     const checkout = await createCheckoutPreference(paymentBooking as never);
