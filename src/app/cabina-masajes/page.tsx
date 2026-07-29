@@ -1,0 +1,5 @@
+import { notFound } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { CabinBooking } from "./cabin-booking";
+export const dynamic = "force-dynamic";
+export default async function CabinPage(){ const {data:space}=await createAdminClient().from("rental_spaces").select("name,price_cents,booking_duration_minutes,deposit_enabled,deposit_percent,active").eq("slug","cabina-masajes").maybeSingle(); if(!space?.active)notFound(); return <main className="cabin-page"><section><p className="eyebrow">ESPACIO PROFESIONAL</p><h1>Reserva la<br/><em>cabina de masajes.</em></h1><p>Elige un horario disponible y reserva tu espacio en minutos.</p><div className="cabin-facts"><span>{space.booking_duration_minutes} min por reserva</span><strong>${(space.price_cents/100).toFixed(0)} MXN</strong>{space.deposit_enabled&&<span>Apartado: {space.deposit_percent}% en línea</span>}</div><CabinBooking priceCents={space.price_cents} depositEnabled={space.deposit_enabled} depositPercent={space.deposit_percent}/></section></main>; }

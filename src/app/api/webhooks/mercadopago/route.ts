@@ -28,6 +28,12 @@ export async function POST(request: NextRequest) {
   const payment = await paymentResponse.json() as { id: number; status: string; external_reference?: string };
   if (!payment.external_reference) return NextResponse.json({ received: true });
   const admin = createAdminClient();
+  if (payment.external_reference.startsWith("cabin:")) {
+    const reservationId = payment.external_reference.slice("cabin:".length);
+    if (payment.status === "approved") await admin.from("rental_reservations").update({ payment_status: "paid", status: "confirmed" }).eq("id", reservationId);
+    else if (["rejected", "cancelled"].includes(payment.status)) await admin.from("rental_reservations").update({ payment_status: "failed" }).eq("id", reservationId);
+    return NextResponse.json({ received: true });
+  }
   const { data: booking } = await admin.from("bookings").select("id").eq("id", payment.external_reference).maybeSingle();
   if (!booking) return NextResponse.json({ received: true });
 

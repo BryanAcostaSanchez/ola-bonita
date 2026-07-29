@@ -36,3 +36,10 @@ export async function createCheckoutPreference(booking: CheckoutBooking) {
   const preference = await response.json() as { id: string; init_point?: string; sandbox_init_point?: string };
   return { preferenceId: preference.id, checkoutUrl: credentials.mode === "test" ? preference.sandbox_init_point || preference.init_point : preference.init_point };
 }
+
+export async function createCabinCheckout(reservation: { id: string; public_code: string; price_cents: number; deposit_due_cents: number; full_name: string; email: string | null; phone: string }) {
+  const credentials = await getMercadoPagoCredentials(); if (!credentials) return null;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://olabonita.shop"; const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.olabonita.shop";
+  const response = await fetch("https://api.mercadopago.com/checkout/preferences", { method: "POST", headers: { Authorization: `Bearer ${credentials.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ items: [{ id: reservation.id, title: "Apartado · Cabina de masajes", quantity: 1, currency_id: "MXN", unit_price: reservation.deposit_due_cents / 100 }], payer: { name: reservation.full_name, email: reservation.email || undefined, phone: { number: reservation.phone } }, external_reference: `cabin:${reservation.id}`, back_urls: { success: `${siteUrl}/cabina-masajes`, pending: `${siteUrl}/cabina-masajes`, failure: `${siteUrl}/cabina-masajes` }, notification_url: `${appUrl}/api/webhooks/mercadopago`, auto_return: "approved" }) });
+  if (!response.ok) throw new Error("Mercado Pago could not create cabin preference"); const preference = await response.json() as { id: string; init_point?: string; sandbox_init_point?: string }; return { preferenceId: preference.id, checkoutUrl: credentials.mode === "test" ? preference.sandbox_init_point || preference.init_point : preference.init_point };
+}
