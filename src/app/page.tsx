@@ -1,13 +1,31 @@
 import Link from "next/link";
+import { createServerClient } from "@/lib/supabase/server";
 
-const categories = [
-  { name: "Masajes", description: "Rituales para soltar tensión y volver a tu centro.", services: ["Back massage · 30 min · $400", "Relax massage · 60 min · $800", "Deep tissue · 60 min · $900"] },
-  { name: "Faciales", description: "Cuidado consciente para una piel luminosa.", services: ["Hydrating facial · 40 min · $800", "Deep facial cleansing · 60 min · $1,000", "Anti-age / Peeling · 60 min · $1,200"] },
-  { name: "Uñas y pies", description: "Detalles que se sienten tan bien como se ven.", services: ["Basic manicure · 60 min · $350", "Luxury spa pedicure · 80 min · $550", "Gel change · 40 min · $250"] },
-  { name: "Mirada y depilación", description: "Servicios precisos para enmarcar tu belleza.", services: ["Lash lifting · 50 min · $450", "Classic extensions · 120 min · $650", "Eyebrow wax · 30 min · $200"] },
-];
+export const dynamic = "force-dynamic";
 
-export default function Home() {
+const descriptions: Record<string, string> = {
+  masajes: "Rituales para soltar tensión y volver a tu centro.",
+  faciales: "Cuidado consciente para una piel luminosa.",
+  "unas-y-pies": "Detalles que se sienten tan bien como se ven.",
+  "lifting-y-cejas": "Servicios precisos para enmarcar tu belleza.",
+  "extensiones-de-pestanas": "Una mirada hecha para destacar.",
+  depilacion: "Cuidado suave y preciso para tu piel.",
+};
+
+const money = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+  maximumFractionDigits: 0,
+});
+
+export default async function Home() {
+  const supabase = createServerClient();
+  const { data: categories } = await supabase
+    .from("service_categories")
+    .select("name, slug, services(name, duration_minutes, price_cents, online_bookable, sort_order)")
+    .eq("active", true)
+    .order("sort_order");
+
   return (
     <main>
       <nav className="nav-shell">
@@ -27,7 +45,13 @@ export default function Home() {
 
       <section id="servicios" className="services section-shell">
         <div className="section-heading"><p className="eyebrow">NUESTRO MENÚ</p><h2>Rituales hechos<br />para ti.</h2><p>Elige tu experiencia y encuentra un espacio que se acomode a tu día.</p></div>
-        <div className="service-grid">{categories.map((category, index) => <article className="service-card" key={category.name}><span className="service-number">0{index + 1}</span><h3>{category.name}</h3><p>{category.description}</p><ul>{category.services.map((service) => <li key={service}>{service}</li>)}</ul><Link href="/reservar">Reservar <span>→</span></Link></article>)}</div>
+        <div className="service-grid">{categories?.map((category, index) => {
+          const services = category.services
+            .filter((service) => service.online_bookable)
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .slice(0, 3);
+          return <article className="service-card" key={category.slug}><span className="service-number">{String(index + 1).padStart(2, "0")}</span><h3>{category.name}</h3><p>{descriptions[category.slug] ?? "Una experiencia creada para ti."}</p><ul>{services.map((service) => <li key={service.name}>{service.name} · {service.duration_minutes} min · {money.format(service.price_cents / 100)}</li>)}</ul><Link href="/reservar">Reservar <span>→</span></Link></article>;
+        })}</div>
       </section>
 
       <section className="booking-band"><div><p className="eyebrow">CITA A TU RITMO</p><h2>Tu tiempo es<br /><em>valioso.</em></h2></div><p>Al reservar podrás elegir el servicio, especialista y horario. Si el servicio requiere anticipo, verás el monto antes de confirmar.</p><Link className="button button-light" href="/reservar">Reservar ahora <span>→</span></Link></section>
