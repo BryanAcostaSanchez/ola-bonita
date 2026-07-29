@@ -15,7 +15,7 @@ export default async function CabinSettingsPage() {
   const admin = createAdminClient();
   const [{ data:space }, { data:hours }, { data:reservations }] = await Promise.all([
     admin.from("rental_spaces").select("*").eq("slug", "cabina-masajes").maybeSingle(),
-    admin.from("rental_space_hours").select("*").order("day_of_week"),
+    admin.from("rental_space_hours").select("*").order("day_of_week").order("opens_at"),
     admin.from("rental_reservations").select("id, public_code, full_name, starts_at, status, deposit_due_cents, payment_status").gte("starts_at", new Date().toISOString()).order("starts_at").limit(30),
   ]);
 
