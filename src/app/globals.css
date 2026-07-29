@@ -7,6 +7,7 @@ body { margin:0; background:var(--cream); color:var(--ink-deep); font-family:Ari
 a { color:inherit; text-decoration:none; }
 .nav-shell { align-items:center; display:flex; justify-content:space-between; margin:auto; max-width:1280px; padding:25px 42px; }
 .brand { color:var(--ink); display:inline-flex; flex-direction:column; font-family:Georgia,serif; font-size:25px; font-style:italic; font-weight:bold; letter-spacing:-1px; line-height:.75; }
+.sidebar .brand,.access-copy .brand{background:center/contain no-repeat url('/brand/ola-bonita.png');font-size:0;height:104px;letter-spacing:0;margin-left:0!important;width:104px}.sidebar .brand span,.sidebar .brand small,.access-copy .brand span,.access-copy .brand small{display:none}.sidebar .brand{margin:0 auto 40px}.access-copy .brand{margin:0}
 .brand-logo{align-items:center;justify-content:center;line-height:1}.brand-logo img{border-radius:50%;display:block;filter:drop-shadow(0 5px 10px rgba(24,57,58,.16));height:auto;width:58px}.booking-header .brand-logo img{width:62px}footer .brand-logo img{width:62px}
 .brand span { color:var(--rose); }.brand small { font-family:Arial,sans-serif; font-size:6px; font-style:normal; letter-spacing:2px; margin:8px 0 0 2px; }
 .nav-actions { align-items:center; display:flex; font-size:13px; gap:30px; }.nav-actions>a:not(.button) { color:#496667; }.nav-actions>a:not(.button):hover,.text-link:hover { color:var(--rose); }
