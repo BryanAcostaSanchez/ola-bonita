@@ -5,7 +5,7 @@ import { BookingServicePicker } from "./service-picker";
 export const dynamic = "force-dynamic";
 
 export default async function BookingPage() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: services } = await supabase
     .from("services")
     .select("id, name, duration_minutes, price_cents, category:service_categories(name)")

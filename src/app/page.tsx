@@ -19,7 +19,7 @@ const money = new Intl.NumberFormat("es-MX", {
 });
 
 export default async function Home() {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: categories } = await supabase
     .from("service_categories")
     .select("name, slug, services(name, duration_minutes, price_cents, online_bookable, sort_order)")
