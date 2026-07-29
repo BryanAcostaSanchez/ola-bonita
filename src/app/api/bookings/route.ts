@@ -6,13 +6,13 @@ import { sendBookingEmails } from "@/lib/transactional-email";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!body || typeof body.serviceId !== "string" || typeof body.specialistId !== "string" || typeof body.startsAt !== "string" || typeof body.fullName !== "string" || typeof body.phone !== "string") {
+  if (!body || typeof body.serviceId !== "string" || typeof body.startsAt !== "string" || typeof body.fullName !== "string" || typeof body.phone !== "string") {
     return NextResponse.json({ error: "Completa los datos de la reserva." }, { status: 422 });
   }
   const supabase = await createServerClient();
   const { data, error } = await supabase.rpc("create_public_booking", {
     p_service_id: body.serviceId,
-    p_specialist_id: body.specialistId,
+    p_specialist_id: null,
     p_starts_at: body.startsAt,
     p_full_name: body.fullName,
     p_phone: body.phone,
