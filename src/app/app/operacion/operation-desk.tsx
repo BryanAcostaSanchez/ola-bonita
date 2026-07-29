@@ -39,6 +39,8 @@ export function OperationDesk({ services, cashSession, staffName }: { services: 
   const [method, setMethod] = useState<Method>("cash");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [showClientForm, setShowClientForm] = useState(false);
+  const [clientDraft, setClientDraft] = useState({ fullName: "", phone: "", email: "", notes: "" });
   const [opening, setOpening] = useState("");
   const [counted, setCounted] = useState("");
   const [expense, setExpense] = useState({ category: "", description: "", amount: "", method: "cash" as Method });
@@ -82,6 +84,29 @@ export function OperationDesk({ services, cashSession, staffName }: { services: 
   const closeCash = () => run(() => supabase.rpc("close_cash_session", { p_counted_cash_cents: cents(counted || "0"), p_notes: null }), "Corte de caja guardado.");
   const saveExpense = () => run(() => supabase.rpc("record_expense", { p_category: expense.category, p_description: expense.description || null, p_amount_cents: cents(expense.amount), p_payment_method: expense.method, p_expense_date: null }), "Gasto registrado.");
 
+  async function saveCustomer() {
+    if (!clientDraft.fullName.trim() || !clientDraft.phone.trim()) {
+      setNotice("Escribe al menos el nombre y teléfono del cliente.");
+      return;
+    }
+    setBusy(true); setNotice(null);
+    const { error } = await supabase.from("customers").insert({
+      full_name: clientDraft.fullName.trim(),
+      phone: clientDraft.phone.trim(),
+      email: clientDraft.email.trim() || null,
+      notes: clientDraft.notes.trim() || null,
+    });
+    setBusy(false);
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
+    setCustomerName(clientDraft.fullName.trim());
+    setCustomerPhone(clientDraft.phone.trim());
+    setShowClientForm(false);
+    setNotice(`${clientDraft.fullName.trim()} se agregó a clientes y quedó asociado al ticket.`);
+  }
+
   return (
     <main className="ops-shell">
       <aside className="sidebar">
@@ -124,9 +149,9 @@ export function OperationDesk({ services, cashSession, staffName }: { services: 
               ))}
               {!itemCount && <p className="empty-ticket">Selecciona los servicios del panel izquierdo.</p>}
             </div>
-            <div className="operation-inputs">
-              <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Nombre de cliente (opcional)" />
-              <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} inputMode="tel" placeholder="Teléfono (opcional)" />
+            <div className="pos-customer">
+              <div className="customer-summary"><div><strong>{customerName || "Sin cliente asociado"}</strong><small>{customerPhone || "Puedes cobrar sin registrar datos."}</small></div><button type="button" className="add-customer" onClick={() => setShowClientForm((current) => !current)}>{showClientForm ? "Cerrar" : customerName ? "Editar cliente" : "+ Agregar cliente"}</button></div>
+              {showClientForm && <div className="customer-form"><input value={clientDraft.fullName} onChange={(event) => setClientDraft({ ...clientDraft, fullName: event.target.value })} placeholder="Nombre completo *" /><input value={clientDraft.phone} onChange={(event) => setClientDraft({ ...clientDraft, phone: event.target.value })} inputMode="tel" placeholder="Teléfono *" /><input value={clientDraft.email} onChange={(event) => setClientDraft({ ...clientDraft, email: event.target.value })} inputMode="email" placeholder="Correo (opcional)" /><input value={clientDraft.notes} onChange={(event) => setClientDraft({ ...clientDraft, notes: event.target.value })} placeholder="Notas (opcional)" /><button type="button" className="secondary-operation" disabled={busy} onClick={saveCustomer}>Guardar cliente</button></div>}
             </div>
             <p className="payment-label">¿Cómo pagó?</p>
             <Methods value={method} change={setMethod} />
