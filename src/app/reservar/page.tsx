@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createServerClient } from "@/lib/supabase/server";
 import { BookingServicePicker } from "./service-picker";
 
@@ -15,7 +16,7 @@ export default async function BookingPage() {
   const { data: bookingSettings } = await supabase.rpc("get_public_booking_settings");
   return (
     <main className="booking-page">
-      <header className="booking-header"><Link href="/" className="brand"><span>Ola</span> Bonita<small>BEAUTY SPA</small></Link><Link className="text-link" href="/">← Volver al sitio</Link></header>
+      <header className="booking-header"><Link href="/" className="brand brand-logo"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={80} height={80} priority /></Link><Link className="text-link" href="/">← Volver al sitio</Link></header>
       <section className="booking-layout">
         <div className="booking-intro"><p className="eyebrow">RESERVA TU CITA</p><h1>Te guardamos<br />un momento <em>para ti.</em></h1><p>Elige el servicio que quieres disfrutar. Podrás elegir el horario y confirmar tus datos en el siguiente paso.</p><div className="booking-note"><strong>Anticipo flexible</strong><span>Cuando esté activado para tu servicio, verás el porcentaje a pagar en línea y el saldo a liquidar en el spa.</span></div></div>
         <BookingServicePicker services={services ?? []} settings={bookingSettings?.[0] ?? null} />

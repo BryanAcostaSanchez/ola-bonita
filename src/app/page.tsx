@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export default async function Home() {
   return (
     <main>
       <nav className="nav-shell">
-        <Link href="/" className="brand" aria-label="Ola Bonita inicio"><span>Ola</span> Bonita<small>BEAUTY SPA</small></Link>
+        <Link href="/" className="brand brand-logo" aria-label="Ola Bonita inicio"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={96} height={96} priority /></Link>
         <div className="nav-actions"><a href="#servicios">Servicios</a><a href="#visitanos">Visítanos</a><Link className="button button-small" href="/reservar">Reservar</Link></div>
       </nav>
 
@@ -58,7 +59,7 @@ export default async function Home() {
 
       <section id="visitanos" className="visit section-shell"><div><p className="eyebrow">ENCUÉNTRANOS</p><h2>Ola Bonita<br />Beauty Spa</h2><p>Guanajuato #655, Brisas de Zicatela<br />Puerto Escondido, Oaxaca, México</p><a className="text-link" href="tel:+529542010059">+52 954 201 0059</a></div><div className="hours"><h3>Horario</h3><p><span>Lunes — Viernes</span><strong>09:00 — 18:00</strong></p><p><span>Sábado — Domingo</span><strong>10:00 — 16:00</strong></p><small>Horario sujeto a disponibilidad de cada especialista.</small></div></section>
 
-      <footer><Link href="/" className="brand"><span>Ola</span> Bonita<small>BEAUTY SPA</small></Link><p>© {new Date().getFullYear()} Ola Bonita Beauty Spa</p><Link href="/reservar">Reservar una cita</Link></footer>
+      <footer><Link href="/" className="brand brand-logo"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={84} height={84} /></Link><p>© {new Date().getFullYear()} Ola Bonita Beauty Spa</p><Link href="/reservar">Reservar una cita</Link></footer>
     </main>
   );
 }
