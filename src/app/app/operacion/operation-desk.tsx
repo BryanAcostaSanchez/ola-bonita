@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Service = { id: string; name: string; price_cents: number };
+type Category = { id: string; name: string };
+type Service = { id: string; name: string; price_cents: number; category: Category | Category[] | null };
 type CashSession = { id: string; opening_float_cents: number; opened_at: string } | null;
 type Method = "cash" | "card" | "transfer";
 
@@ -36,6 +37,7 @@ function Methods({ value, change }: { value: Method; change: (method: Method) =>
 export function OperationDesk({ services, cashSession, staffName }: { services: Service[]; cashSession: CashSession; staffName: string }) {
   const supabase = createClient();
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [method, setMethod] = useState<Method>("cash");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -48,6 +50,18 @@ export function OperationDesk({ services, cashSession, staffName }: { services: 
   const [busy, setBusy] = useState(false);
 
   const qty = (id: string) => cart[id] ?? 0;
+  const categoryOf = (service: Service) => Array.isArray(service.category) ? service.category[0] : service.category;
+  const categories = useMemo(() => {
+    const grouped = new Map<string, { id: string; name: string; count: number }>();
+    services.forEach((service) => {
+      const category = categoryOf(service) || { id: "other", name: "Otros servicios" };
+      const current = grouped.get(category.id);
+      grouped.set(category.id, { ...category, count: (current?.count ?? 0) + 1 });
+    });
+    return [...grouped.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
+  }, [services]);
+  const selectedCategory = categories.find((category) => category.id === selectedCategoryId);
+  const visibleServices = selectedCategoryId ? services.filter((service) => (categoryOf(service)?.id || "other") === selectedCategoryId) : [];
   const total = useMemo(
     () => services.reduce((sum, service) => sum + (cart[service.id] ?? 0) * service.price_cents, 0),
     [cart, services],
@@ -127,16 +141,8 @@ export function OperationDesk({ services, cashSession, staffName }: { services: 
         {notice && <p className="operation-notice">{notice}</p>}
         <div className="operations-grid touch-pos-grid">
           <section className="operation-card pos-catalog">
-            <div className="section-top"><div><h2>Nueva venta</h2><p>Toca un servicio para agregarlo al ticket.</p></div><span className="touch-hint">◉ Modo táctil</span></div>
-            <div className="pos-services">
-              {services.map((service) => (
-                <button type="button" key={service.id} onClick={() => add(service.id)} aria-label={`Agregar ${service.name}`}>
-                  <span>{service.name}</span>
-                  <strong>{money.format(service.price_cents / 100)}</strong>
-                  <small>{qty(service.id) ? `${qty(service.id)} en ticket` : "Tocar para agregar"}</small>
-                </button>
-              ))}
-            </div>
+            <div className="section-top"><div><h2>{selectedCategory ? selectedCategory.name : "Nueva venta"}</h2><p>{selectedCategory ? "Toca un servicio para agregarlo al ticket." : "Primero selecciona una categoría."}</p></div><span className="touch-hint">◉ Modo táctil</span></div>
+            {selectedCategory ? <><button type="button" className="back-to-categories" onClick={() => setSelectedCategoryId(null)}>← Ver categorías</button><div className="pos-services">{visibleServices.map((service) => <button type="button" key={service.id} onClick={() => add(service.id)} aria-label={`Agregar ${service.name}`}><span>{service.name}</span><strong>{money.format(service.price_cents / 100)}</strong><small>{qty(service.id) ? `${qty(service.id)} en ticket` : "Tocar para agregar"}</small></button>)}</div></> : <div className="pos-categories">{categories.map((category) => <button type="button" key={category.id} onClick={() => setSelectedCategoryId(category.id)}><span>{category.name}</span><small>{category.count} {category.count === 1 ? "servicio" : "servicios"}</small><b>Ver servicios →</b></button>)}</div>}
           </section>
           <section className="operation-card pos-ticket">
             <div className="section-top"><div><h2>Ticket actual</h2><p>{itemCount ? `${itemCount} ${itemCount === 1 ? "servicio" : "servicios"}` : "Aún no agregas servicios"}</p></div><strong className="ticket-total">{money.format(total / 100)}</strong></div>
