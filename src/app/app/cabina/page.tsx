@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { CabinSettings } from "./settings";
 export const dynamic="force-dynamic";
 export default async function CabinSettingsPage() {
@@ -11,11 +12,12 @@ export default async function CabinSettingsPage() {
   const { data:profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
   if (!profile || !["owner", "manager"].includes(profile.role)) redirect("/app");
 
+  const admin = createAdminClient();
   const [{ data:space }, { data:hours }, { data:reservations }] = await Promise.all([
-    supabase.from("rental_spaces").select("*").eq("slug", "cabina-masajes").maybeSingle(),
-    supabase.from("rental_space_hours").select("*").order("day_of_week"),
-    supabase.from("rental_reservations").select("id, public_code, full_name, starts_at, status, deposit_due_cents, payment_status").gte("starts_at", new Date().toISOString()).order("starts_at").limit(30),
+    admin.from("rental_spaces").select("*").eq("slug", "cabina-masajes").maybeSingle(),
+    admin.from("rental_space_hours").select("*").order("day_of_week"),
+    admin.from("rental_reservations").select("id, public_code, full_name, starts_at, status, deposit_due_cents, payment_status").gte("starts_at", new Date().toISOString()).order("starts_at").limit(30),
   ]);
 
-  return <main className="ops-shell"><aside className="sidebar"><Link href="/" className="brand"><span>Ola</span> Bonita<small>BEAUTY SPA</small></Link><nav><Link href="/app">▦ <span>Agenda</span></Link><Link href="/app/operacion">◇ <span>Ventas y caja</span></Link><Link className="active" href="/app/cabina">▣ <span>Renta de cabina</span></Link><Link href="/app/configuracion">⚙ <span>Configuración</span></Link></nav></aside><section className="ops-main settings-main"><CabinSettings space={space} hours={hours ?? []} reservations={reservations ?? []}/></section></main>;
+  return <main className="ops-shell"><aside className="sidebar"><Link href="/" className="brand"><span>Ola</span> Bonita<small>BEAUTY SPA</small></Link><nav><Link href="/app">▦ <span>Agenda</span></Link>{profile.role === "owner" && <Link href="/app/equipo">♙ <span>Equipo</span></Link>}<Link href="/app/operacion">◇ <span>Ventas y caja</span></Link><Link href="/app/finanzas">◔ <span>Finanzas</span></Link><Link className="active" href="/app/cabina">▣ <span>Renta de cabina</span></Link><Link href="/app/configuracion">⚙ <span>Configuración</span></Link></nav></aside><section className="ops-main settings-main"><CabinSettings space={space} hours={hours ?? []} reservations={reservations ?? []}/></section></main>;
 }
