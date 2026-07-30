@@ -63,6 +63,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
   const [clientDraft, setClientDraft] = useState(()=>initialDraft.clientDraft ?? { fullName: "", phone: "", email: "", notes: "" });
   const [opening, setOpening] = useState("");
   const [counted, setCounted] = useState("");
+  const [cashModal, setCashModal] = useState<"open"|"adjust"|null>(null);
   const [expense, setExpense] = useState({ category: "", description: "", amount: "", method: "cash" as Method, tagIds:[] as string[] });
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -121,6 +122,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
       "Venta registrada.", true,
     );
   const openCash = () => run(() => supabase.rpc("open_cash_session", { p_opening_float_cents: cents(opening || "0") }), "Caja abierta.");
+  const adjustOpening = () => run(() => supabase.rpc("adjust_opening_cash", { p_opening_float_cents: cents(opening || "0") }), "Fondo inicial actualizado.");
   const closeCash = () => run(() => supabase.rpc("close_cash_session", { p_counted_cash_cents: cents(counted || "0"), p_notes: null }), "Corte de caja guardado.");
   const saveExpense = () => run(() => supabase.rpc("record_expense", { p_category: expense.category, p_description: expense.description || null, p_amount_cents: cents(expense.amount), p_payment_method: expense.method, p_expense_date: null, p_tag_ids:expense.tagIds }), "Gasto registrado.");
 
@@ -192,7 +194,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
           <aside className="operation-stack">
             <section className="operation-card">
               <div className="section-top"><div><h2>Caja</h2><p>{cashSession ? `Abierta desde ${new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit" }).format(new Date(cashSession.opened_at))}` : "Sin sesión activa"}</p></div></div>
-              {cashSession ? <><p className="cash-float">Fondo inicial: <strong>{money.format(cashSession.opening_float_cents / 100)}</strong></p><input value={counted} onChange={(event) => setCounted(event.target.value)} inputMode="decimal" placeholder="Efectivo contado al cierre" /><button type="button" className="secondary-operation" disabled={busy} onClick={closeCash}>Hacer corte de caja</button></> : <><input value={opening} onChange={(event) => setOpening(event.target.value)} inputMode="decimal" placeholder="Fondo inicial (ej. 500)" /><button type="button" className="primary-operation" disabled={busy} onClick={openCash}>Abrir caja</button></>}
+              {cashSession ? <><p className="cash-float">Fondo inicial: <strong>{money.format(cashSession.opening_float_cents / 100)}</strong></p>{cashSession.opening_float_cents === 0 && <button type="button" className="cash-adjust-link" onClick={()=>{setOpening("");setCashModal("adjust");}}>Registrar fondo inicial</button>}<input value={counted} onChange={(event) => setCounted(event.target.value)} inputMode="decimal" placeholder="Efectivo contado al cierre" /><button type="button" className="secondary-operation" disabled={busy} onClick={closeCash}>Hacer corte de caja</button></> : <button type="button" className="primary-operation" disabled={busy} onClick={()=>{setOpening("");setCashModal("open");}}>Abrir caja</button>}
             </section>
             <section className="operation-card">
               <div className="section-top"><div><h2>Registrar gasto</h2><p>Se descuenta del corte si es efectivo</p></div></div>
@@ -204,6 +206,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
           </aside>
         </div>
       </section>
+      {cashModal && <div className="cash-modal-backdrop" role="presentation"><section className="cash-modal" role="dialog" aria-modal="true" aria-labelledby="cash-modal-title"><button type="button" className="cash-modal-close" aria-label="Cerrar" onClick={()=>setCashModal(null)}>×</button><p className="eyebrow">{cashModal === "open" ? "APERTURA DE CAJA" : "CORREGIR APERTURA"}</p><h2 id="cash-modal-title">{cashModal === "open" ? "¿Con cuánto efectivo inicias?" : "Registra el fondo inicial"}</h2><p>Cuenta el efectivo físico que dejas en caja antes de comenzar a cobrar.</p><label>Monto inicial<input autoFocus value={opening} onChange={(event)=>setOpening(event.target.value)} inputMode="decimal" placeholder="Ej. 500.00"/></label><div><button type="button" className="secondary-button" onClick={()=>setCashModal(null)}>Cancelar</button><button type="button" className="primary-operation" disabled={busy} onClick={()=>{if(cashModal === "open") openCash(); else adjustOpening(); setCashModal(null);}}>{cashModal === "open" ? "Abrir caja" : "Guardar fondo"}</button></div></section></div>}
     </main>
   );
 }
