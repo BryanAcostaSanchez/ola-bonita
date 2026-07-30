@@ -13,6 +13,7 @@ const newRange = (day:number):Hour => ({ space_id:"", day_of_week:day, opens_at:
 
 export function CabinSettings({ space, hours, reservations }: { space:Space|null; hours:Hour[]; reservations:Reservation[] }) {
   const [data, setData] = useState(space);
+  const [priceDraft, setPriceDraft] = useState(() => space ? String(space.price_cents / 100) : "");
   const [schedule, setSchedule] = useState(hours.map((hour) => ({ ...hour, opens_at:hour.opens_at.slice(0, 5), closes_at:hour.closes_at.slice(0, 5) })));
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
@@ -26,8 +27,10 @@ export function CabinSettings({ space, hours, reservations }: { space:Space|null
 
   async function save() {
     if (!data) return;
+    const price = Number(priceDraft.replace(",", "."));
+    if (!Number.isFinite(price) || price < 0) { setMessage("Escribe un precio válido."); return; }
     setBusy(true); setMessage("");
-    const spaceUpdate = { ...data, slot_interval_minutes:data.booking_duration_minutes };
+    const spaceUpdate = { ...data, price_cents:Math.round(price * 100), slot_interval_minutes:data.booking_duration_minutes };
     const { error:spaceError } = await db.from("rental_spaces").update(spaceUpdate).eq("id", data.id);
     if (spaceError) { setMessage(spaceError.message); setBusy(false); return; }
     const { error:removeError } = await db.from("rental_space_hours").delete().eq("space_id", data.id);
@@ -36,7 +39,7 @@ export function CabinSettings({ space, hours, reservations }: { space:Space|null
       const { error:hourError } = await db.from("rental_space_hours").insert(schedule.map((hour) => ({ space_id:data.id, day_of_week:hour.day_of_week, opens_at:hour.opens_at, closes_at:hour.closes_at, active:hour.active })));
       if (hourError) { setMessage(hourError.message); setBusy(false); return; }
     }
-    setData(spaceUpdate); setMessage("Disponibilidad de la cabina guardada."); setBusy(false);
+    setData(spaceUpdate); setPriceDraft(String(spaceUpdate.price_cents / 100)); setMessage("Disponibilidad de la cabina guardada."); setBusy(false);
   }
 
   async function cancel(id:string) { if (!window.confirm("¿Cancelar esta reserva de cabina?")) return; const { error } = await db.from("rental_reservations").update({ status:"cancelled" }).eq("id", id); setMessage(error?.message || "Reserva cancelada. Recarga para actualizar la agenda."); }
@@ -47,7 +50,7 @@ export function CabinSettings({ space, hours, reservations }: { space:Space|null
     <section className="settings-card cabin-link-card"><div><p className="eyebrow">LIGA PRIVADA</p><h2>Comparte solo cuando quieras</h2><p>Esta ruta no aparece en la navegación pública del sitio.</p></div><code>{publicUrl}</code><button type="button" className="secondary-button" onClick={copyPublicUrl}>{copied ? "✓ Liga copiada" : "Copiar liga"}</button></section>
     <section className="settings-card cabin-settings">
       <label className="switch-row"><span><strong>Recibir reservas</strong><small>Apágalo temporalmente para ocultar la página pública.</small></span><input type="checkbox" checked={data.active} onChange={(event) => setData({ ...data, active:event.target.checked })}/><i/></label>
-      <div className="cabin-core-fields"><label>Duración de cada reserva<select value={data.booking_duration_minutes} onChange={(event) => setData({ ...data, booking_duration_minutes:Number(event.target.value) })}><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">1 hora</option><option value="90">1 h 30 min</option><option value="120">2 horas</option></select><small>Los horarios se generan con esta duración.</small></label><label>Personas por horario<input type="number" min="1" max="20" value={data.capacity_per_slot} onChange={(event) => setData({ ...data, capacity_per_slot:Number(event.target.value) })}/><small>Normalmente 1 para una sola cabina.</small></label><label>Precio por reserva (MXN)<input inputMode="decimal" value={data.price_cents / 100} onChange={(event) => setData({ ...data, price_cents:Math.round(Number(event.target.value || 0) * 100) })}/><small>Define el importe completo de la renta.</small></label></div>
+      <div className="cabin-core-fields"><label>Duración de cada reserva<select value={data.booking_duration_minutes} onChange={(event) => setData({ ...data, booking_duration_minutes:Number(event.target.value) })}><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">1 hora</option><option value="90">1 h 30 min</option><option value="120">2 horas</option></select><small>Los horarios se generan con esta duración.</small></label><label>Personas por horario<input type="number" min="1" max="20" value={data.capacity_per_slot} onChange={(event) => setData({ ...data, capacity_per_slot:Number(event.target.value) })}/><small>Normalmente 1 para una sola cabina.</small></label><label>Precio por reserva (MXN)<input inputMode="decimal" value={priceDraft} onChange={(event) => setPriceDraft(event.target.value)}/><small>Define el importe completo de la renta.</small></label></div>
       <label className="switch-row"><span><strong>Pedir apartado en línea</strong><small>Si se activa, el cliente paga el porcentaje definido por Mercado Pago.</small></span><input type="checkbox" checked={data.deposit_enabled} onChange={(event) => setData({ ...data, deposit_enabled:event.target.checked })}/><i/></label>
       {data.deposit_enabled && <label className="cabin-deposit-field">Porcentaje de apartado<input type="number" min="1" max="100" value={data.deposit_percent} onChange={(event) => setData({ ...data, deposit_percent:Number(event.target.value) })}/></label>}
       <div className="availability-heading"><div><p className="eyebrow">DISPONIBILIDAD SEMANAL</p><h2>Franjas de horario</h2><p>Agrega una o varias franjas por día, como 09:00–12:00 y 14:00–18:00.</p></div></div>
