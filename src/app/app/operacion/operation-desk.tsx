@@ -162,7 +162,6 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
         <Link href="/" className="brand"><span>Ola</span> Bonita<small>BEAUTY SPA</small></Link>
         <nav>
           <Link href="/app">▦ <span>Agenda</span></Link>
-          <Link href="/app/equipo">♙ <span>Equipo</span></Link>
           <Link className="active" href="/app/operacion">◇ <span>Ventas y caja</span></Link>
           <Link href="/app/analitica">◔ <span>Analítica</span></Link>
           <Link href="/app/configuracion">⚙ <span>Configuración</span></Link>

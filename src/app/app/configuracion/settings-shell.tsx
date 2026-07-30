@@ -41,7 +41,6 @@ export function SettingsShell({ activeSection, profileRole, sections, children }
 
         <nav className="settings-primary-nav" aria-label="Navegación principal">
           <Link href="/app"><i>▦</i><span>Agenda</span></Link>
-          <Link href="/app/equipo"><i>♙</i><span>Equipo</span></Link>
           <Link href="/app/operacion"><i>◇</i><span>Ventas y caja</span></Link>
           <Link href="/app/analitica"><i>◔</i><span>Analítica</span></Link>
           <Link href="/app/configuracion" className="active"><i>⚙</i><span>Configuración</span></Link>
