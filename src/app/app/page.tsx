@@ -38,8 +38,8 @@ export default async function AppDashboard() {
   const dayEnd = `${date}T23:59:59.999-06:00`;
   const weekEnd = new Date(new Date(dayStart).getTime() + 7 * 86400000).toISOString();
   const [{ data:bookings }, { data:weekBookings }, { data:cabinReservations }, { data:sales }, { data:cashSession }, { data:specialists }, { data:hours }, { data:weeklySpecialistHours }, { data:assignments }] = await Promise.all([
-    supabase.from("bookings").select("id, specialist_id, starts_at, ends_at, status, customer:customers(full_name), service:services(name), specialist:profiles(full_name, color)").gte("starts_at", dayStart).lte("starts_at", dayEnd).order("starts_at"),
-    supabase.from("bookings").select("id, specialist_id, starts_at, ends_at, status, customer:customers(full_name), service:services(name), specialist:profiles(full_name, color)").gte("starts_at", dayStart).lt("starts_at", weekEnd).order("starts_at"),
+    supabase.from("bookings").select("id, specialist_id, starts_at, ends_at, status, price_cents, deposit_due_cents, payment_status, customer:customers(full_name,phone,email), service:services(name), specialist:profiles(full_name, color), payments(amount_cents,status)").gte("starts_at", dayStart).lte("starts_at", dayEnd).order("starts_at"),
+    supabase.from("bookings").select("id, specialist_id, starts_at, ends_at, status, price_cents, deposit_due_cents, payment_status, customer:customers(full_name,phone,email), service:services(name), specialist:profiles(full_name, color), payments(amount_cents,status)").gte("starts_at", dayStart).lt("starts_at", weekEnd).order("starts_at"),
     supabase.from("rental_reservations").select("id, full_name, starts_at, ends_at, status").gte("starts_at", dayStart).lt("starts_at", weekEnd).order("starts_at"),
     supabase.from("sales").select("total_cents").gte("created_at", dayStart).lte("created_at", dayEnd).eq("status", "completed"),
     supabase.from("cash_sessions").select("id").eq("status", "open").limit(1).maybeSingle(),
@@ -69,6 +69,10 @@ export default async function AppDashboard() {
     starts_at: reservation.starts_at,
     ends_at: reservation.ends_at,
     status: reservation.status,
+    price_cents: 0,
+    deposit_due_cents: 0,
+    payment_status: "unpaid",
+    payments: [],
     customer: { full_name: reservation.full_name },
     service: { name: "Renta de cabina" },
     specialist: { full_name: "Cabina de masajes", color: "#d9787b" },
