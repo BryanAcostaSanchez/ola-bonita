@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 type Category = { id: string; name: string };
 type Service = { id: string; name: string; price_cents: number; category: Category | Category[] | null };
 type CashSession = { id: string; opening_float_cents: number; opened_at: string } | null;
+type FinanceOption = { id:string; name:string; color:string };
 type Method = "cash" | "card" | "transfer";
 
 const money = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
@@ -34,7 +35,7 @@ function Methods({ value, change }: { value: Method; change: (method: Method) =>
   );
 }
 
-export function OperationDesk({ services, cashSession, staffName }: { services: Service[]; cashSession: CashSession; staffName: string }) {
+export function OperationDesk({ services, cashSession, staffName, expenseCategories, expenseTags }: { services: Service[]; cashSession: CashSession; staffName: string; expenseCategories:FinanceOption[]; expenseTags:FinanceOption[] }) {
   const supabase = createClient();
   const [cart, setCart] = useState<Record<string, number>>({});
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export function OperationDesk({ services, cashSession, staffName }: { services: 
   const [clientDraft, setClientDraft] = useState({ fullName: "", phone: "", email: "", notes: "" });
   const [opening, setOpening] = useState("");
   const [counted, setCounted] = useState("");
-  const [expense, setExpense] = useState({ category: "", description: "", amount: "", method: "cash" as Method });
+  const [expense, setExpense] = useState({ category: "", description: "", amount: "", method: "cash" as Method, tagIds:[] as string[] });
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -96,7 +97,7 @@ export function OperationDesk({ services, cashSession, staffName }: { services: 
     );
   const openCash = () => run(() => supabase.rpc("open_cash_session", { p_opening_float_cents: cents(opening || "0") }), "Caja abierta.");
   const closeCash = () => run(() => supabase.rpc("close_cash_session", { p_counted_cash_cents: cents(counted || "0"), p_notes: null }), "Corte de caja guardado.");
-  const saveExpense = () => run(() => supabase.rpc("record_expense", { p_category: expense.category, p_description: expense.description || null, p_amount_cents: cents(expense.amount), p_payment_method: expense.method, p_expense_date: null }), "Gasto registrado.");
+  const saveExpense = () => run(() => supabase.rpc("record_expense", { p_category: expense.category, p_description: expense.description || null, p_amount_cents: cents(expense.amount), p_payment_method: expense.method, p_expense_date: null, p_tag_ids:expense.tagIds }), "Gasto registrado.");
 
   async function saveCustomer() {
     if (!clientDraft.fullName.trim() || !clientDraft.phone.trim()) {
@@ -170,7 +171,8 @@ export function OperationDesk({ services, cashSession, staffName }: { services: 
             </section>
             <section className="operation-card">
               <div className="section-top"><div><h2>Registrar gasto</h2><p>Se descuenta del corte si es efectivo</p></div></div>
-              <div className="operation-inputs"><input value={expense.category} onChange={(event) => setExpense({ ...expense, category: event.target.value })} placeholder="Categoría (ej. insumos)" /><input value={expense.description} onChange={(event) => setExpense({ ...expense, description: event.target.value })} placeholder="Descripción (opcional)" /><input value={expense.amount} onChange={(event) => setExpense({ ...expense, amount: event.target.value })} inputMode="decimal" placeholder="Importe" /></div>
+              <div className="operation-inputs"><select value={expense.category} onChange={(event) => setExpense({ ...expense, category:event.target.value })}><option value="">Selecciona una categoría</option>{expenseCategories.map((category)=><option value={category.name} key={category.id}>{category.name}</option>)}</select><input value={expense.description} onChange={(event) => setExpense({ ...expense, description: event.target.value })} placeholder="Descripción (opcional)" /><input value={expense.amount} onChange={(event) => setExpense({ ...expense, amount: event.target.value })} inputMode="decimal" placeholder="Importe" /></div>
+              <div className="expense-tags"><span>Etiquetas <small>(opcional)</small></span><div>{expenseTags.map((tag)=><button type="button" key={tag.id} className={expense.tagIds.includes(tag.id)?"selected":""} onClick={()=>setExpense((current)=>({...current,tagIds:current.tagIds.includes(tag.id)?current.tagIds.filter((id)=>id!==tag.id):[...current.tagIds,tag.id]}))}><i style={{background:tag.color}}/>{tag.name}</button>)}</div><Link href="/app/configuracion#finanzas">Administrar categorías y etiquetas →</Link></div>
               <Methods value={expense.method} change={(selectedMethod) => setExpense({ ...expense, method: selectedMethod })} />
               <button type="button" className="secondary-operation" disabled={busy || !expense.category || !expense.amount} onClick={saveExpense}>Guardar gasto</button>
             </section>
