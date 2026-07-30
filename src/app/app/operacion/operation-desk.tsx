@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Category = { id: string; name: string };
@@ -44,6 +44,47 @@ function Methods({ value, change }: { value: Method; change: (method: Method) =>
           {labels[method]}
         </button>
       ))}
+    </div>
+  );
+}
+
+function SwipeCartLine({ service, quantity, onAdd, onRemove }: { service: Service; quantity: number; onAdd: () => void; onRemove: () => void }) {
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const [offset, setOffset] = useState(0);
+
+  const finishSwipe = () => {
+    if (offset >= 56) onAdd();
+    if (offset <= -56) onRemove();
+    start.current = null;
+    setOffset(0);
+  };
+
+  return (
+    <div className="cart-swipe-shell">
+      <span className="cart-swipe-action cart-swipe-add" aria-hidden="true">+1</span>
+      <span className="cart-swipe-action cart-swipe-remove" aria-hidden="true">−1</span>
+      <div
+        className="cart-line cart-line-swipe"
+        title="Desliza a la derecha para sumar o a la izquierda para restar"
+        style={{ transform: `translateX(${offset}px)` }}
+        onPointerDown={(event) => {
+          if (event.pointerType === "mouse") return;
+          start.current = { x: event.clientX, y: event.clientY };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          if (!start.current) return;
+          const horizontal = event.clientX - start.current.x;
+          const vertical = event.clientY - start.current.y;
+          if (Math.abs(vertical) > Math.abs(horizontal) + 8) return;
+          setOffset(Math.max(-82, Math.min(82, horizontal)));
+        }}
+        onPointerUp={finishSwipe}
+        onPointerCancel={() => { start.current = null; setOffset(0); }}
+      >
+        <div><strong>{service.name}</strong><small>{money.format(service.price_cents / 100)} c/u</small></div>
+        <div className="cart-adjust"><button type="button" onClick={onRemove} aria-label={`Quitar uno de ${service.name}`}>−</button><strong>{quantity}</strong><button type="button" onClick={onAdd} aria-label={`Agregar otro ${service.name}`}>+</button></div>
+      </div>
     </div>
   );
 }
@@ -182,14 +223,10 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
           <section className="operation-card pos-ticket">
             <div className="section-top"><div><h2>Ticket actual</h2><p>{itemCount ? `${itemCount} ${itemCount === 1 ? "servicio" : "servicios"}` : "Aún no agregas servicios"}</p></div><strong className="ticket-total">{money.format(total / 100)}</strong></div>
             <div className="cart-lines">
-              {services.filter((service) => qty(service.id)).map((service) => (
-                <div key={service.id} className="cart-line">
-                  <div><strong>{service.name}</strong><small>{money.format(service.price_cents / 100)} c/u</small></div>
-                  <div className="cart-adjust"><button type="button" onClick={() => remove(service.id)} aria-label={`Quitar uno de ${service.name}`}>−</button><strong>{qty(service.id)}</strong><button type="button" onClick={() => add(service.id)} aria-label={`Agregar otro ${service.name}`}>+</button></div>
-                </div>
-              ))}
+              {services.filter((service) => qty(service.id)).map((service) => <SwipeCartLine key={service.id} service={service} quantity={qty(service.id)} onAdd={() => add(service.id)} onRemove={() => remove(service.id)} />)}
               {!itemCount && <p className="empty-ticket">Selecciona los servicios del panel izquierdo.</p>}
             </div>
+            {!!itemCount && <p className="cart-swipe-hint">Desliza un servicio: derecha suma · izquierda resta.</p>}
             <div className="pos-customer"><div className="section-top"><div><h3>Cliente</h3><p>{customerName ? "Cliente asociado al ticket" : "Opcional: busca antes de cobrar"}</p></div>{customerName && <button type="button" className="add-customer" onClick={()=>{setCustomerName("");setCustomerPhone("");setCustomerSearch("");setShowClientForm(false);}}>Quitar</button>}</div>{!customerName && <><div className="customer-search-wrap"><input className="customer-search" value={customerSearch} onChange={(event)=>{setCustomerSearch(event.target.value);setShowClientForm(false);}} placeholder="Buscar por nombre, teléfono o correo"/><button type="button" className="customer-quick-add" aria-label="Agregar cliente nuevo" onClick={()=>{setClientDraft((draft)=>({...draft,fullName:customerSearch || draft.fullName}));setCustomerResults([]);setShowClientForm(true);}}>+ Cliente</button></div>{searchingCustomer && <small className="customer-search-note">Buscando…</small>}{customerResults.length > 0 && <div className="customer-results">{customerResults.map((customer)=><button type="button" key={customer.id} onClick={()=>{setCustomerName(customer.full_name);setCustomerPhone(customer.phone ?? "");setCustomerSearch("");setCustomerResults([]);}}><strong>{customer.full_name}</strong><small>{customer.phone || customer.email || "Sin contacto"}</small></button>)}</div>}{searchedCustomer && !searchingCustomer && customerResults.length === 0 && <div className="customer-empty"><span>No encontramos a “{customerSearch}”.</span><button type="button" className="add-customer" onClick={()=>{setClientDraft((draft)=>({...draft,fullName:customerSearch}));setShowClientForm(true);}}>+ Agregar cliente</button></div>}{showClientForm && <div className="customer-form"><input value={clientDraft.fullName} onChange={(event) => setClientDraft({ ...clientDraft, fullName: event.target.value })} placeholder="Nombre completo *" /><input value={clientDraft.phone} onChange={(event) => setClientDraft({ ...clientDraft, phone: event.target.value })} inputMode="tel" placeholder="Teléfono *" /><input value={clientDraft.email} onChange={(event) => setClientDraft({ ...clientDraft, email: event.target.value })} inputMode="email" placeholder="Correo (opcional)" /><input value={clientDraft.notes} onChange={(event) => setClientDraft({ ...clientDraft, notes: event.target.value })} placeholder="Notas (opcional)" /><button type="button" className="secondary-operation" disabled={busy} onClick={saveCustomer}>Guardar cliente</button></div>}</>}</div>
             <div className="payment-heading"><p className="payment-label">¿Cómo pagó?</p><button type="button" className={splitPayment ? "split-toggle active" : "split-toggle"} onClick={()=>{setSplitPayment((current)=>!current);setFirstSplitAmount("");}}>Pago dividido</button></div>
             {!splitPayment ? <Methods value={method} change={setMethod} /> : <div className="split-payment"><div><select value={firstSplitMethod} onChange={(event)=>setFirstSplitMethod(event.target.value as Method)}><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><input inputMode="decimal" value={firstSplitAmount} onChange={(event)=>setFirstSplitAmount(event.target.value)} placeholder="Importe"/></div><div><select value={secondSplitMethod} onChange={(event)=>setSecondSplitMethod(event.target.value as Method)}><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><output>Resto: {money.format(remainingSplitCents / 100)}</output></div><small>Ingresa la primera parte; el resto se calcula automáticamente.</small></div>}
