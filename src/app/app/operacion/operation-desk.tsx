@@ -40,6 +40,10 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
   const [cart, setCart] = useState<Record<string, number>>({});
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [method, setMethod] = useState<Method>("cash");
+  const [splitPayment, setSplitPayment] = useState(false);
+  const [firstSplitMethod, setFirstSplitMethod] = useState<Method>("cash");
+  const [secondSplitMethod, setSecondSplitMethod] = useState<Method>("card");
+  const [firstSplitAmount, setFirstSplitAmount] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [showClientForm, setShowClientForm] = useState(false);
@@ -71,6 +75,9 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
   const add = (id: string) => setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
   const remove = (id: string) => setCart((current) => ({ ...current, [id]: Math.max(0, (current[id] ?? 0) - 1) }));
   const cents = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
+  const firstSplitCents = Math.max(0, cents(firstSplitAmount || "0"));
+  const remainingSplitCents = Math.max(0, total - firstSplitCents);
+  const splitIsValid = firstSplitCents > 0 && remainingSplitCents > 0;
 
   const run = async (work: () => PromiseLike<{ error: { message: string } | null }>, success: string) => {
     setBusy(true);
@@ -89,9 +96,10 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
           p_items: services
             .filter((service) => qty(service.id))
             .map((service) => ({ service_id: service.id, quantity: qty(service.id) })),
-          p_payment_method: method,
+          p_payment_method: splitPayment ? firstSplitMethod : method,
           p_customer_name: customerName || null,
           p_customer_phone: customerPhone || null,
+          p_payments: splitPayment ? [{ method:firstSplitMethod, amount_cents:firstSplitCents }, { method:secondSplitMethod, amount_cents:remainingSplitCents }] : null,
         }),
       "Venta registrada.",
     );
@@ -160,9 +168,9 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
               <div className="customer-summary"><div><strong>{customerName || "Sin cliente asociado"}</strong><small>{customerPhone || "Puedes cobrar sin registrar datos."}</small></div><button type="button" className="add-customer" onClick={() => setShowClientForm((current) => !current)}>{showClientForm ? "Cerrar" : customerName ? "Editar cliente" : "+ Agregar cliente"}</button></div>
               {showClientForm && <div className="customer-form"><input value={clientDraft.fullName} onChange={(event) => setClientDraft({ ...clientDraft, fullName: event.target.value })} placeholder="Nombre completo *" /><input value={clientDraft.phone} onChange={(event) => setClientDraft({ ...clientDraft, phone: event.target.value })} inputMode="tel" placeholder="Teléfono *" /><input value={clientDraft.email} onChange={(event) => setClientDraft({ ...clientDraft, email: event.target.value })} inputMode="email" placeholder="Correo (opcional)" /><input value={clientDraft.notes} onChange={(event) => setClientDraft({ ...clientDraft, notes: event.target.value })} placeholder="Notas (opcional)" /><button type="button" className="secondary-operation" disabled={busy} onClick={saveCustomer}>Guardar cliente</button></div>}
             </div>
-            <p className="payment-label">¿Cómo pagó?</p>
-            <Methods value={method} change={setMethod} />
-            <button type="button" className="primary-operation" disabled={!total || busy} onClick={checkout}>Cobrar {money.format(total / 100)}</button>
+            <div className="payment-heading"><p className="payment-label">¿Cómo pagó?</p><button type="button" className={splitPayment ? "split-toggle active" : "split-toggle"} onClick={()=>{setSplitPayment((current)=>!current);setFirstSplitAmount("");}}>Pago dividido</button></div>
+            {!splitPayment ? <Methods value={method} change={setMethod} /> : <div className="split-payment"><div><select value={firstSplitMethod} onChange={(event)=>setFirstSplitMethod(event.target.value as Method)}><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><input inputMode="decimal" value={firstSplitAmount} onChange={(event)=>setFirstSplitAmount(event.target.value)} placeholder="Importe"/></div><div><select value={secondSplitMethod} onChange={(event)=>setSecondSplitMethod(event.target.value as Method)}><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><output>Resto: {money.format(remainingSplitCents / 100)}</output></div><small>Ingresa la primera parte; el resto se calcula automáticamente.</small></div>}
+            <button type="button" className="primary-operation" disabled={!total || busy || (splitPayment && !splitIsValid)} onClick={checkout}>Cobrar {money.format(total / 100)}</button>
           </section>
           <aside className="operation-stack">
             <section className="operation-card">
