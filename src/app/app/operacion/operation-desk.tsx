@@ -8,6 +8,7 @@ type Category = { id: string; name: string };
 type Service = { id: string; name: string; price_cents: number; category: Category | Category[] | null };
 type CashSession = { id: string; opening_float_cents: number; opened_at: string } | null;
 type FinanceOption = { id:string; name:string; color:string };
+type Customer = { id:string; full_name:string; phone:string|null; email:string|null };
 type Method = "cash" | "card" | "transfer";
 
 type PosDraft = Partial<{ cart:Record<string,number>; selectedCategoryId:string|null; method:Method; splitPayment:boolean; firstSplitMethod:Method; secondSplitMethod:Method; firstSplitAmount:string; customerName:string; customerPhone:string; clientDraft:{ fullName:string; phone:string; email:string; notes:string } }>;
@@ -48,7 +49,7 @@ function Methods({ value, change }: { value: Method; change: (method: Method) =>
 }
 
 export function OperationDesk({ services, cashSession, staffName, expenseCategories, expenseTags }: { services: Service[]; cashSession: CashSession; staffName: string; expenseCategories:FinanceOption[]; expenseTags:FinanceOption[] }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [initialDraft] = useState(readPosDraft);
   const [cart, setCart] = useState<Record<string, number>>(()=>initialDraft.cart ?? {});
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(()=>initialDraft.selectedCategoryId ?? null);
@@ -59,6 +60,10 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
   const [firstSplitAmount, setFirstSplitAmount] = useState(()=>initialDraft.firstSplitAmount ?? "");
   const [customerName, setCustomerName] = useState(()=>initialDraft.customerName ?? "");
   const [customerPhone, setCustomerPhone] = useState(()=>initialDraft.customerPhone ?? "");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerResults, setCustomerResults] = useState<Customer[]>([]);
+  const [searchedCustomer, setSearchedCustomer] = useState(false);
+  const [searchingCustomer, setSearchingCustomer] = useState(false);
   const [showClientForm, setShowClientForm] = useState(false);
   const [clientDraft, setClientDraft] = useState(()=>initialDraft.clientDraft ?? { fullName: "", phone: "", email: "", notes: "" });
   const [opening, setOpening] = useState("");
@@ -70,6 +75,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
   useEffect(() => {
     sessionStorage.setItem("ola-bonita:pos-draft:v1", JSON.stringify({ cart, selectedCategoryId, method, splitPayment, firstSplitMethod, secondSplitMethod, firstSplitAmount, customerName, customerPhone, clientDraft }));
   }, [cart, selectedCategoryId, method, splitPayment, firstSplitMethod, secondSplitMethod, firstSplitAmount, customerName, customerPhone, clientDraft]);
+  useEffect(() => { const term=customerSearch.replace(/[,%()]/g, "").trim(); const timeout=window.setTimeout(async()=>{ if (term.length < 2) { setCustomerResults([]); setSearchedCustomer(false); setSearchingCustomer(false); return; } setSearchingCustomer(true); const { data } = await supabase.from("customers").select("id,full_name,phone,email").or(`full_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`).limit(5); setCustomerResults(data ?? []); setSearchedCustomer(true); setSearchingCustomer(false); }, 250); return ()=>window.clearTimeout(timeout); }, [customerSearch, supabase]);
 
   const qty = (id: string) => cart[id] ?? 0;
   const categoryOf = (service: Service) => Array.isArray(service.category) ? service.category[0] : service.category;
@@ -132,12 +138,12 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
       return;
     }
     setBusy(true); setNotice(null);
-    const { error } = await supabase.from("customers").insert({
+    const { data, error } = await supabase.from("customers").insert({
       full_name: clientDraft.fullName.trim(),
       phone: clientDraft.phone.trim(),
       email: clientDraft.email.trim() || null,
       notes: clientDraft.notes.trim() || null,
-    });
+    }).select("id,full_name,phone,email").single();
     setBusy(false);
     if (error) {
       setNotice(error.message);
@@ -145,6 +151,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
     }
     setCustomerName(clientDraft.fullName.trim());
     setCustomerPhone(clientDraft.phone.trim());
+    setCustomerSearch(""); setCustomerResults(data ? [data] : []);
     setShowClientForm(false);
     setNotice(`${clientDraft.fullName.trim()} se agregó a clientes y quedó asociado al ticket.`);
   }
@@ -183,10 +190,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
               ))}
               {!itemCount && <p className="empty-ticket">Selecciona los servicios del panel izquierdo.</p>}
             </div>
-            <div className="pos-customer">
-              <div className="customer-summary"><div><strong>{customerName || "Sin cliente asociado"}</strong><small>{customerPhone || "Puedes cobrar sin registrar datos."}</small></div><button type="button" className="add-customer" onClick={() => setShowClientForm((current) => !current)}>{showClientForm ? "Cerrar" : customerName ? "Editar cliente" : "+ Agregar cliente"}</button></div>
-              {showClientForm && <div className="customer-form"><input value={clientDraft.fullName} onChange={(event) => setClientDraft({ ...clientDraft, fullName: event.target.value })} placeholder="Nombre completo *" /><input value={clientDraft.phone} onChange={(event) => setClientDraft({ ...clientDraft, phone: event.target.value })} inputMode="tel" placeholder="Teléfono *" /><input value={clientDraft.email} onChange={(event) => setClientDraft({ ...clientDraft, email: event.target.value })} inputMode="email" placeholder="Correo (opcional)" /><input value={clientDraft.notes} onChange={(event) => setClientDraft({ ...clientDraft, notes: event.target.value })} placeholder="Notas (opcional)" /><button type="button" className="secondary-operation" disabled={busy} onClick={saveCustomer}>Guardar cliente</button></div>}
-            </div>
+            <div className="pos-customer"><div className="section-top"><div><h3>Cliente</h3><p>{customerName ? "Cliente asociado al ticket" : "Opcional: busca antes de cobrar"}</p></div>{customerName && <button type="button" className="add-customer" onClick={()=>{setCustomerName("");setCustomerPhone("");setCustomerSearch("");setShowClientForm(false);}}>Quitar</button>}</div>{!customerName && <><input className="customer-search" value={customerSearch} onChange={(event)=>{setCustomerSearch(event.target.value);setShowClientForm(false);}} placeholder="Buscar por nombre, teléfono o correo"/>{searchingCustomer && <small className="customer-search-note">Buscando…</small>}{customerResults.length > 0 && <div className="customer-results">{customerResults.map((customer)=><button type="button" key={customer.id} onClick={()=>{setCustomerName(customer.full_name);setCustomerPhone(customer.phone ?? "");setCustomerSearch("");setCustomerResults([]);}}><strong>{customer.full_name}</strong><small>{customer.phone || customer.email || "Sin contacto"}</small></button>)}</div>}{searchedCustomer && !searchingCustomer && customerResults.length === 0 && <div className="customer-empty"><span>No encontramos a “{customerSearch}”.</span><button type="button" className="add-customer" onClick={()=>{setClientDraft((draft)=>({...draft,fullName:customerSearch}));setShowClientForm(true);}}>+ Agregar cliente</button></div>}{showClientForm && <div className="customer-form"><input value={clientDraft.fullName} onChange={(event) => setClientDraft({ ...clientDraft, fullName: event.target.value })} placeholder="Nombre completo *" /><input value={clientDraft.phone} onChange={(event) => setClientDraft({ ...clientDraft, phone: event.target.value })} inputMode="tel" placeholder="Teléfono *" /><input value={clientDraft.email} onChange={(event) => setClientDraft({ ...clientDraft, email: event.target.value })} inputMode="email" placeholder="Correo (opcional)" /><input value={clientDraft.notes} onChange={(event) => setClientDraft({ ...clientDraft, notes: event.target.value })} placeholder="Notas (opcional)" /><button type="button" className="secondary-operation" disabled={busy} onClick={saveCustomer}>Guardar cliente</button></div>}</>}</div>
             <div className="payment-heading"><p className="payment-label">¿Cómo pagó?</p><button type="button" className={splitPayment ? "split-toggle active" : "split-toggle"} onClick={()=>{setSplitPayment((current)=>!current);setFirstSplitAmount("");}}>Pago dividido</button></div>
             {!splitPayment ? <Methods value={method} change={setMethod} /> : <div className="split-payment"><div><select value={firstSplitMethod} onChange={(event)=>setFirstSplitMethod(event.target.value as Method)}><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><input inputMode="decimal" value={firstSplitAmount} onChange={(event)=>setFirstSplitAmount(event.target.value)} placeholder="Importe"/></div><div><select value={secondSplitMethod} onChange={(event)=>setSecondSplitMethod(event.target.value as Method)}><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><output>Resto: {money.format(remainingSplitCents / 100)}</output></div><small>Ingresa la primera parte; el resto se calcula automáticamente.</small></div>}
             <button type="button" className="primary-operation" disabled={!total || busy || (splitPayment && !splitIsValid)} onClick={checkout}>Cobrar {money.format(total / 100)}</button>
