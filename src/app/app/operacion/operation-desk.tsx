@@ -164,7 +164,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
           <Link href="/app">▦ <span>Agenda</span></Link>
           <Link href="/app/equipo">♙ <span>Equipo</span></Link>
           <Link className="active" href="/app/operacion">◇ <span>Ventas y caja</span></Link>
-          <Link href="/app/finanzas">◔ <span>Finanzas</span></Link>
+          <Link href="/app/finanzas">◔ <span>Analítica</span></Link>
           <Link href="/app/configuracion">⚙ <span>Configuración</span></Link>
         </nav>
         <div className="sidebar-user"><span className="avatar">{staffName.slice(0, 2).toUpperCase()}</span><div><strong>{staffName}</strong><small>Equipo Ola Bonita</small></div></div>

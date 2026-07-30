@@ -43,7 +43,7 @@ export function SettingsShell({ activeSection, profileRole, sections, children }
           <Link href="/app"><i>▦</i><span>Agenda</span></Link>
           <Link href="/app/equipo"><i>♙</i><span>Equipo</span></Link>
           <Link href="/app/operacion"><i>◇</i><span>Ventas y caja</span></Link>
-          <Link href="/app/finanzas"><i>◔</i><span>Finanzas</span></Link>
+          <Link href="/app/finanzas"><i>◔</i><span>Analítica</span></Link>
           <Link href="/app/configuracion" className="active"><i>⚙</i><span>Configuración</span></Link>
         </nav>
 
