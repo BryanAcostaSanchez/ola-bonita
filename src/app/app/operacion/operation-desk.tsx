@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Category = { id: string; name: string };
@@ -9,6 +9,9 @@ type Service = { id: string; name: string; price_cents: number; category: Catego
 type CashSession = { id: string; opening_float_cents: number; opened_at: string } | null;
 type FinanceOption = { id:string; name:string; color:string };
 type Method = "cash" | "card" | "transfer";
+
+type PosDraft = Partial<{ cart:Record<string,number>; selectedCategoryId:string|null; method:Method; splitPayment:boolean; firstSplitMethod:Method; secondSplitMethod:Method; firstSplitAmount:string; customerName:string; customerPhone:string; clientDraft:{ fullName:string; phone:string; email:string; notes:string } }>;
+function readPosDraft(): PosDraft { if (typeof window === "undefined") return {}; try { return JSON.parse(sessionStorage.getItem("ola-bonita:pos-draft:v1") || "{}"); } catch { sessionStorage.removeItem("ola-bonita:pos-draft:v1"); return {}; } }
 
 const money = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
 
@@ -46,22 +49,26 @@ function Methods({ value, change }: { value: Method; change: (method: Method) =>
 
 export function OperationDesk({ services, cashSession, staffName, expenseCategories, expenseTags }: { services: Service[]; cashSession: CashSession; staffName: string; expenseCategories:FinanceOption[]; expenseTags:FinanceOption[] }) {
   const supabase = createClient();
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [method, setMethod] = useState<Method>("cash");
-  const [splitPayment, setSplitPayment] = useState(false);
-  const [firstSplitMethod, setFirstSplitMethod] = useState<Method>("cash");
-  const [secondSplitMethod, setSecondSplitMethod] = useState<Method>("card");
-  const [firstSplitAmount, setFirstSplitAmount] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
+  const [initialDraft] = useState(readPosDraft);
+  const [cart, setCart] = useState<Record<string, number>>(()=>initialDraft.cart ?? {});
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(()=>initialDraft.selectedCategoryId ?? null);
+  const [method, setMethod] = useState<Method>(()=>initialDraft.method ?? "cash");
+  const [splitPayment, setSplitPayment] = useState(()=>initialDraft.splitPayment ?? false);
+  const [firstSplitMethod, setFirstSplitMethod] = useState<Method>(()=>initialDraft.firstSplitMethod ?? "cash");
+  const [secondSplitMethod, setSecondSplitMethod] = useState<Method>(()=>initialDraft.secondSplitMethod ?? "card");
+  const [firstSplitAmount, setFirstSplitAmount] = useState(()=>initialDraft.firstSplitAmount ?? "");
+  const [customerName, setCustomerName] = useState(()=>initialDraft.customerName ?? "");
+  const [customerPhone, setCustomerPhone] = useState(()=>initialDraft.customerPhone ?? "");
   const [showClientForm, setShowClientForm] = useState(false);
-  const [clientDraft, setClientDraft] = useState({ fullName: "", phone: "", email: "", notes: "" });
+  const [clientDraft, setClientDraft] = useState(()=>initialDraft.clientDraft ?? { fullName: "", phone: "", email: "", notes: "" });
   const [opening, setOpening] = useState("");
   const [counted, setCounted] = useState("");
   const [expense, setExpense] = useState({ category: "", description: "", amount: "", method: "cash" as Method, tagIds:[] as string[] });
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    sessionStorage.setItem("ola-bonita:pos-draft:v1", JSON.stringify({ cart, selectedCategoryId, method, splitPayment, firstSplitMethod, secondSplitMethod, firstSplitAmount, customerName, customerPhone, clientDraft }));
+  }, [cart, selectedCategoryId, method, splitPayment, firstSplitMethod, secondSplitMethod, firstSplitAmount, customerName, customerPhone, clientDraft]);
 
   const qty = (id: string) => cart[id] ?? 0;
   const categoryOf = (service: Service) => Array.isArray(service.category) ? service.category[0] : service.category;
@@ -88,12 +95,13 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
   const remainingSplitCents = Math.max(0, total - firstSplitCents);
   const splitIsValid = firstSplitCents > 0 && remainingSplitCents > 0;
 
-  const run = async (work: () => PromiseLike<{ error: { message: string } | null }>, success: string) => {
+  const run = async (work: () => PromiseLike<{ error: { message: string } | null }>, success: string, clearPosDraft = false) => {
     setBusy(true);
     setNotice(null);
     const { error } = await work();
     setBusy(false);
     if (error) return setNotice(friendlyError(error.message));
+    if (clearPosDraft) sessionStorage.removeItem("ola-bonita:pos-draft:v1");
     setNotice(success);
     window.setTimeout(() => window.location.reload(), 500);
   };
@@ -110,7 +118,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
           p_customer_phone: customerPhone || null,
           p_payments: splitPayment ? [{ method:firstSplitMethod, amount_cents:firstSplitCents }, { method:secondSplitMethod, amount_cents:remainingSplitCents }] : null,
         }),
-      "Venta registrada.",
+      "Venta registrada.", true,
     );
   const openCash = () => run(() => supabase.rpc("open_cash_session", { p_opening_float_cents: cents(opening || "0") }), "Caja abierta.");
   const closeCash = () => run(() => supabase.rpc("close_cash_session", { p_counted_cash_cents: cents(counted || "0"), p_notes: null }), "Corte de caja guardado.");
