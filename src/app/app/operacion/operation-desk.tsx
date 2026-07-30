@@ -12,6 +12,15 @@ type Method = "cash" | "card" | "transfer";
 
 const money = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
 
+function friendlyError(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("abre caja") || normalized.includes("caja antes") || normalized.includes("cash session")) return "Abre la caja antes de cobrar o registrar un gasto en efectivo.";
+  if (normalized.includes("subtotal_cents") || normalized.includes("not-null constraint")) return "No pudimos registrar la venta. Actualiza la configuración de ventas en Supabase y vuelve a intentarlo.";
+  if (normalized.includes("importes deben sumar")) return "Los dos importes deben sumar exactamente el total del ticket.";
+  if (normalized.includes("método de pago no está habilitado")) return "Ese método de pago no está habilitado en Configuración.";
+  return "No pudimos completar la operación. Revisa los datos e inténtalo de nuevo.";
+}
+
 function Methods({ value, change }: { value: Method; change: (method: Method) => void }) {
   const labels: Record<Method, string> = {
     cash: "Efectivo",
@@ -84,7 +93,7 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
     setNotice(null);
     const { error } = await work();
     setBusy(false);
-    if (error) return setNotice(error.message);
+    if (error) return setNotice(friendlyError(error.message));
     setNotice(success);
     window.setTimeout(() => window.location.reload(), 500);
   };
