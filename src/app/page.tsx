@@ -28,7 +28,7 @@ export default async function Home() {
     .order("sort_order");
 
   return (
-    <main>
+    <main className="public-site">
       <nav className="nav-shell">
         <Link href="/" className="brand brand-logo" aria-label="Ola Bonita inicio"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={96} height={96} priority /></Link>
         <div className="nav-actions"><a href="#servicios">Servicios</a><a href="#visitanos">Visítanos</a><Link className="button button-small" href="/reservar">Reservar</Link></div>
