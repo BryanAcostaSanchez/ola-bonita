@@ -533,6 +533,7 @@ export function TeamManager({
                   </div>
                 )}
               </fieldset>
+              <div className="commission-services-heading"><strong>Servicios que atiende y comisión por servicio</strong><small>Marca los que realiza esta especialista; escribe a la derecha el monto que recibe por cada uno.</small></div>
               <div className="service-assignment">
                 {services.map((service) => (
                   <label key={service.id}>
