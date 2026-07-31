@@ -31,15 +31,10 @@ export function CabinSettings({ space, hours, reservations }: { space:Space|null
     if (!Number.isFinite(price) || price < 0) { setMessage("Escribe un precio válido."); return; }
     setBusy(true); setMessage("");
     const spaceUpdate = { ...data, price_cents:Math.round(price * 100), slot_interval_minutes:data.booking_duration_minutes };
-    const { error:spaceError } = await db.from("rental_spaces").update(spaceUpdate).eq("id", data.id);
-    if (spaceError) { setMessage(spaceError.message); setBusy(false); return; }
-    const { error:removeError } = await db.from("rental_space_hours").delete().eq("space_id", data.id);
-    if (removeError) { setMessage(removeError.message); setBusy(false); return; }
-    if (schedule.length) {
-      const { error:hourError } = await db.from("rental_space_hours").insert(schedule.map((hour) => ({ space_id:data.id, day_of_week:hour.day_of_week, opens_at:hour.opens_at, closes_at:hour.closes_at, active:hour.active })));
-      if (hourError) { setMessage(hourError.message); setBusy(false); return; }
-    }
-    setData(spaceUpdate); setPriceDraft(String(spaceUpdate.price_cents / 100)); setMessage("Disponibilidad de la cabina guardada."); setBusy(false);
+    const { error } = await db.rpc("save_rental_space_settings", { p_space_id:data.id, p_active:data.active, p_booking_duration_minutes:data.booking_duration_minutes, p_capacity_per_slot:data.capacity_per_slot, p_price_cents:spaceUpdate.price_cents, p_deposit_enabled:data.deposit_enabled, p_deposit_percent:data.deposit_percent, p_hours:schedule.map((hour) => ({ day_of_week:hour.day_of_week, opens_at:hour.opens_at, closes_at:hour.closes_at, active:hour.active })) });
+    setBusy(false);
+    if (error) { setMessage(error.message); return; }
+    setData(spaceUpdate); setPriceDraft(String(spaceUpdate.price_cents / 100)); setMessage("Disponibilidad de la cabina guardada.");
   }
 
   async function cancel(id:string) { if (!window.confirm("¿Cancelar esta reserva de cabina?")) return; const { error } = await db.from("rental_reservations").update({ status:"cancelled" }).eq("id", id); setMessage(error?.message || "Reserva cancelada. Recarga para actualizar la agenda."); }
