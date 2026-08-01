@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import Link from "next/link";
 import Image from "next/image";
 import { createServerClient } from "@/lib/supabase/server";
@@ -6,11 +8,23 @@ import { WhatsappFab } from "@/components/WhatsappFab";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SiteNav } from "@/components/SiteNav";
 import { TestimonialCarousel } from "@/components/TestimonialCarousel";
+import { SiteFooter } from "@/components/SiteFooter";
+import { BackToTop } from "@/components/BackToTop";
 import { intlLocale } from "@/lib/i18n/locale";
 import { getLocale } from "@/lib/i18n/server";
 import { dictionary } from "@/lib/i18n/dictionary";
 
 export const dynamic = "force-dynamic";
+
+const SERVICE_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];
+
+function getServiceImage(slug: string): string | null {
+  for (const ext of SERVICE_IMAGE_EXTENSIONS) {
+    const filePath = path.join(process.cwd(), "public", "services", `${slug}.${ext}`);
+    if (fs.existsSync(filePath)) return `/services/${slug}.${ext}`;
+  }
+  return null;
+}
 
 export default async function Home() {
   const locale = await getLocale();
@@ -23,7 +37,7 @@ export default async function Home() {
   const supabase = await createServerClient();
   const { data: categories } = await supabase
     .from("service_categories")
-    .select("name, slug, services(name, duration_minutes, price_cents, online_bookable, sort_order)")
+    .select("name, slug, services(id, name, duration_minutes, price_cents, online_bookable, sort_order)")
     .eq("active", true)
     .neq("slug", "borrar")
     .order("sort_order");
@@ -48,11 +62,25 @@ export default async function Home() {
       <section id="servicios" className="services section-shell">
         <div className="section-heading"><p className="eyebrow">{t.services.eyebrow}</p><h2>{t.services.titleLine1}<br />{t.services.titleLine2}</h2><p>{t.services.subtitle}</p></div>
         <div className="service-grid">{categories?.map((category, index) => {
-          const services = category.services
-            .filter((service) => service.online_bookable)
-            .sort((a, b) => a.sort_order - b.sort_order)
-            .slice(0, 3);
-          return <article className="service-card" key={category.slug}><span className="service-number">{String(index + 1).padStart(2, "0")}</span><h3>{category.name}</h3><p>{t.descriptions[category.slug] ?? t.services.fallbackDescription}</p><ul>{services.map((service) => <li key={service.name}>{service.name} · {service.duration_minutes} min · {money.format(service.price_cents / 100)}</li>)}</ul><Link href="/reservar">{t.services.cta} <span>→</span></Link></article>;
+          const bookableServices = category.services.filter((service) => service.online_bookable);
+          const cheapest = bookableServices.length ? Math.min(...bookableServices.map((service) => service.price_cents)) : null;
+          const image = getServiceImage(category.slug);
+          return (
+            <article className="service-card" key={category.slug}>
+              <div className="service-card-media">
+                {image ? (
+                  <Image src={image} alt={category.name} fill sizes="(max-width:620px) 100vw, (max-width:1024px) 50vw, 33vw" className="service-card-image" />
+                ) : (
+                  <div className={`service-card-placeholder service-card-placeholder-${index % 3}`} aria-hidden="true"></div>
+                )}
+              </div>
+              <span className="service-number">{String(index + 1).padStart(2, "0")}</span>
+              <h3>{category.name}</h3>
+              <p>{t.descriptions[category.slug] ?? t.services.fallbackDescription}</p>
+              {cheapest !== null && <p className="service-price-from">{t.services.from} <strong>{money.format(cheapest / 100)}</strong></p>}
+              <Link href={`/reservar?category=${encodeURIComponent(category.name)}`}>{t.services.cta} <span aria-hidden="true">→</span></Link>
+            </article>
+          );
         })}</div>
       </section>
 
@@ -90,13 +118,29 @@ export default async function Home() {
         ))}</div>
       </section>
 
-      <section className="booking-band"><div><p className="eyebrow">{t.bookingBand.eyebrow}</p><h2>{t.bookingBand.titleLine1}<br /><em>{t.bookingBand.titleEm}</em></h2></div><p>{t.bookingBand.text}</p><Link className="button button-light" href="/reservar">{t.bookingBand.cta} <span>→</span></Link></section>
-
       <section id="visitanos" className="visit section-shell"><div><p className="eyebrow">{t.visit.eyebrow}</p><h2>{t.visit.titleLine1}<br />{t.visit.titleLine2}</h2><p>{t.visit.address}<br />{t.visit.city}</p><a className="text-link" href="tel:+529542010059">+52 954 201 0059</a></div><div className="hours"><h3>{t.visit.hoursTitle}</h3><p><span>{t.visit.weekdays}</span><strong>{t.visit.weekdaysHours}</strong></p><p><span>{t.visit.weekend}</span><strong>{t.visit.weekendHours}</strong></p><small>{t.visit.note}</small></div></section>
 
-      <footer><Link href="/" className="brand brand-logo"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={84} height={84} /></Link><p>© {new Date().getFullYear()} {t.footer.rights}</p><Link href="/reservar">{t.footer.cta}</Link></footer>
+      <section className="map-section">
+        <iframe
+          src={`https://www.google.com/maps?q=${encodeURIComponent("Ola Bonita Beauty Spa Massage, Guanajuato 655, Brisas de Zicatela, 70934 Puerto Escondido, Oaxaca, México")}&output=embed`}
+          width="100%"
+          height="450"
+          style={{ border: 0 }}
+          loading="lazy"
+          allowFullScreen
+          referrerPolicy="no-referrer-when-downgrade"
+          title={t.map.title}
+        ></iframe>
+        <a className="map-directions" href="https://maps.app.goo.gl/AVLtoHh43jNqnaFV9" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.4" /></svg>
+          {t.map.directions}
+        </a>
+      </section>
+
+      <SiteFooter locale={locale} />
       <LanguageSwitcher locale={locale} />
       <WhatsappFab locale={locale} />
+      <BackToTop locale={locale} />
     </main>
   );
 }
