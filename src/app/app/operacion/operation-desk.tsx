@@ -17,13 +17,17 @@ type CashSession = {
   opened_at: string;
 } | null;
 type FinanceOption = { id: string; name: string; color: string };
-type Specialist = { id: string; full_name: string };
+type Specialist = {
+  id: string;
+  full_name: string;
+  commission_percent?: number | null;
+};
 type CustomService = {
   id: string;
   description: string;
   amount: string;
   note: string;
-  commission: string;
+  commissionPercent: string;
   specialistId: string;
   externalProvider: boolean;
   externalProviderName: string;
@@ -199,6 +203,7 @@ export function OperationDesk({
   staffName,
   expenseCategories,
   expenseTags,
+  defaultCommissionPercent,
 }: {
   services: Service[];
   specialists: Specialist[];
@@ -206,6 +211,7 @@ export function OperationDesk({
   staffName: string;
   expenseCategories: FinanceOption[];
   expenseTags: FinanceOption[];
+  defaultCommissionPercent: number;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const ticketRef = useRef<HTMLElement>(null);
@@ -220,7 +226,7 @@ export function OperationDesk({
     description: "Servicio personalizado",
     amount: "",
     note: "",
-    commission: "",
+    commissionPercent: String(defaultCommissionPercent),
     specialistId: "",
     externalProvider: false,
     externalProviderName: "",
@@ -393,7 +399,9 @@ export function OperationDesk({
     }));
   const addCustomService = () => {
     const amount = cents(customDraft.amount || "0");
-    const commission = cents(customDraft.commission || "0");
+    const commissionPercent = Number(
+      customDraft.commissionPercent.replace(",", ".") || 0,
+    );
     if (
       !customDraft.description.trim() ||
       !Number.isFinite(amount) ||
@@ -402,15 +410,19 @@ export function OperationDesk({
       return setNotice(
         "Agrega el nombre y un importe válido para el servicio personalizado.",
       );
-    if (!Number.isFinite(commission) || commission < 0)
-      return setNotice("La comisión debe ser un importe válido.");
+    if (
+      !Number.isFinite(commissionPercent) ||
+      commissionPercent < 0 ||
+      commissionPercent > 100
+    )
+      return setNotice("La comisión debe ser un porcentaje entre 0 y 100.");
     if (
       customDraft.externalProvider &&
-      (!customDraft.externalProviderName.trim() || commission <= 0)
+      !customDraft.externalProviderName.trim()
     )
       return setNotice("Indica el nombre y la comisión del prestador externo.");
     if (
-      commission > 0 &&
+      commissionPercent > 0 &&
       !customDraft.externalProvider &&
       !customDraft.specialistId
     )
@@ -424,7 +436,7 @@ export function OperationDesk({
       description: "Servicio personalizado",
       amount: "",
       note: "",
-      commission: "",
+      commissionPercent: String(defaultCommissionPercent),
       specialistId: "",
       externalProvider: false,
       externalProviderName: "",
@@ -473,7 +485,11 @@ export function OperationDesk({
               description: service.description.trim(),
               quantity: 1,
               unit_price_cents: cents(service.amount),
-              commission_cents: cents(service.commission || "0"),
+              commission_percent: Number(
+                (
+                  service.commissionPercent ?? String(defaultCommissionPercent)
+                ).replace(",", ".") || 0,
+              ),
               specialist_id: service.externalProvider
                 ? null
                 : service.specialistId || null,
@@ -678,7 +694,9 @@ export function OperationDesk({
                     }
                     placeholder="Nota de venta (opcional)"
                   />
-                  <p className="service-provider-label">¿Quién realiza este servicio?</p>
+                  <p className="service-provider-label">
+                    ¿Quién realiza este servicio?
+                  </p>
                   <label className="external-provider-toggle">
                     <input
                       type="checkbox"
@@ -699,15 +717,19 @@ export function OperationDesk({
                     </span>
                   </label>
                   <input
-                    value={customDraft.commission}
+                    value={customDraft.commissionPercent}
                     onChange={(event) =>
                       setCustomDraft({
                         ...customDraft,
-                        commission: event.target.value,
+                        commissionPercent: event.target.value,
                       })
                     }
                     inputMode="decimal"
-                    placeholder={customDraft.externalProvider ? "Comisión a pagar al externo" : "Comisión para el equipo (opcional)"}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    placeholder="Porcentaje de comisión"
                   />
                   {customDraft.externalProvider ? (
                     <div className="external-provider-fields">
@@ -730,21 +752,38 @@ export function OperationDesk({
                           })
                         }
                       >
-                        <option value="cash">Comisión pagada en efectivo</option>
-                        <option value="transfer">Comisión pagada por transferencia</option>
-                        <option value="card">Comisión pagada con tarjeta</option>
+                        <option value="cash">
+                          Comisión pagada en efectivo
+                        </option>
+                        <option value="transfer">
+                          Comisión pagada por transferencia
+                        </option>
+                        <option value="card">
+                          Comisión pagada con tarjeta
+                        </option>
                       </select>
-                      <small>Al cobrar, la comisión se registra como gasto vinculado a esta venta.</small>
+                      <small>
+                        Usa el porcentaje global por defecto o cámbialo para
+                        esta venta. Al cobrar, se registra como gasto vinculado.
+                      </small>
                     </div>
-                  ) : cents(customDraft.commission || "0") > 0 && specialists.length ? (
+                  ) : Number(customDraft.commissionPercent || 0) > 0 &&
+                    specialists.length ? (
                     <select
                       value={customDraft.specialistId}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const specialist = specialists.find(
+                          (item) => item.id === event.target.value,
+                        );
                         setCustomDraft({
                           ...customDraft,
                           specialistId: event.target.value,
-                        })
-                      }
+                          commissionPercent:
+                            specialist?.commission_percent == null
+                              ? String(defaultCommissionPercent)
+                              : String(specialist.commission_percent),
+                        });
+                      }}
                     >
                       <option value="">Selecciona especialista</option>
                       {specialists.map((specialist) => (
@@ -753,12 +792,21 @@ export function OperationDesk({
                         </option>
                       ))}
                     </select>
-                  ) : cents(customDraft.commission || "0") > 0 ? <small className="service-provider-note">No hay especialistas activas. Usa “prestador externo” o agrega una integrante al equipo.</small> : null}
+                  ) : Number(customDraft.commissionPercent || 0) > 0 ? (
+                    <small className="service-provider-note">
+                      No hay especialistas activas. Usa “prestador externo” o
+                      agrega una integrante al equipo.
+                    </small>
+                  ) : null}
                   <button
                     type="button"
                     className="secondary-operation"
                     onClick={addCustomService}
-                    disabled={!customDraft.externalProvider && cents(customDraft.commission || "0") > 0 && !specialists.length}
+                    disabled={
+                      !customDraft.externalProvider &&
+                      Number(customDraft.commissionPercent || 0) > 0 &&
+                      !specialists.length
+                    }
                   >
                     Agregar al ticket
                   </button>
@@ -855,8 +903,8 @@ export function OperationDesk({
                     <strong>{service.description}</strong>
                     <small>
                       {service.note || "Servicio personalizado"}
-                      {service.commission
-                        ? ` · Comisión ${money.format(cents(service.commission) / 100)}`
+                      {Number(service.commissionPercent || 0) > 0
+                        ? ` · Comisión ${service.commissionPercent}% (${money.format(Math.round((cents(service.amount) * Number(service.commissionPercent)) / 100) / 100)})`
                         : ""}
                       {service.externalProvider
                         ? ` · Externo: ${service.externalProviderName}`

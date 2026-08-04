@@ -131,13 +131,11 @@ export function CatalogManager({
     if (
       await save(
         () =>
-          client
-            .from("service_categories")
-            .insert({
-              name,
-              slug: slugify(name),
-              sort_order: categoryList.length,
-            }),
+          client.from("service_categories").insert({
+            name,
+            slug: slugify(name),
+            sort_order: categoryList.length,
+          }),
         "Categoría agregada.",
       )
     ) {
@@ -234,18 +232,16 @@ export function CatalogManager({
     if (
       await save(
         () =>
-          client
-            .from("services")
-            .insert({
-              name: serviceDraft.name.trim(),
-              category_id: serviceDraft.categoryId,
-              price_cents: cents(serviceDraft.price),
-              duration_minutes: Number(serviceDraft.duration),
-              description: serviceDraft.description.trim() || null,
-              online_bookable: serviceDraft.online,
-              active: true,
-              sort_order: serviceList.length,
-            }),
+          client.from("services").insert({
+            name: serviceDraft.name.trim(),
+            category_id: serviceDraft.categoryId,
+            price_cents: cents(serviceDraft.price),
+            duration_minutes: Number(serviceDraft.duration),
+            description: serviceDraft.description.trim() || null,
+            online_bookable: serviceDraft.online,
+            active: true,
+            sort_order: serviceList.length,
+          }),
         "Servicio agregado.",
       )
     )
@@ -301,16 +297,14 @@ export function CatalogManager({
     if (
       await save(
         () =>
-          client
-            .from("pos_products")
-            .insert({
-              name: productDraft.name.trim(),
-              sku: productDraft.sku.trim() || null,
-              price_cents: cents(productDraft.price),
-              stock_quantity:
-                productDraft.stock === "" ? null : Number(productDraft.stock),
-              active: true,
-            }),
+          client.from("pos_products").insert({
+            name: productDraft.name.trim(),
+            sku: productDraft.sku.trim() || null,
+            price_cents: cents(productDraft.price),
+            stock_quantity:
+              productDraft.stock === "" ? null : Number(productDraft.stock),
+            active: true,
+          }),
         "Producto agregado al POS.",
       )
     )
@@ -491,7 +485,9 @@ export function CatalogManager({
           <h2>
             Agregar servicio <Hint text="Se vende desde el punto de venta." />
           </h2>
-          <p className="catalog-help">El precio aquí es el que paga la clienta.</p>
+          <p className="catalog-help">
+            El precio aquí es el que paga la clienta.
+          </p>
           <form className="catalog-form" onSubmit={addService}>
             <input
               required
@@ -566,10 +562,23 @@ export function CatalogManager({
                   })
                 }
               />
-              <span><strong>Disponible para reservar en el sitio web</strong><small>Actívalo sólo si quieres que el público lo vea y pueda agendarlo.</small></span>
+              <span>
+                <strong>Disponible para reservar en el sitio web</strong>
+                <small>
+                  Actívalo sólo si quieres que el público lo vea y pueda
+                  agendarlo.
+                </small>
+              </span>
               <Hint text="Lo muestra en olabonita.shop." />
             </label>
-            <p className="commission-note"><strong>¿Cuánto recibe cada especialista?</strong> La comisión se define por persona y servicio, porque no siempre es igual. <Link href="/app/configuracion?seccion=equipo">Configurar comisiones en Equipo →</Link></p>
+            <p className="commission-note">
+              <strong>¿Cuánto recibe cada especialista?</strong> La comisión se
+              calcula como porcentaje del importe cobrado. Define el porcentaje
+              global y cualquier excepción por persona en Nómina.{" "}
+              <Link href="/app/configuracion/nomina">
+                Configurar comisiones en Nómina →
+              </Link>
+            </p>
             <button
               className="new-booking"
               disabled={busy || !activeCategories.length}

@@ -17,13 +17,22 @@ type SettingsShellProps = {
   children: ReactNode;
 };
 
-export function SettingsShell({ activeSection, profileRole, sections, children }: SettingsShellProps) {
+export function SettingsShell({
+  activeSection,
+  profileRole,
+  sections,
+  children,
+}: SettingsShellProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <main className={`settings-app-shell ${collapsed ? "is-collapsed" : ""}`}>
       <aside className="settings-primary-sidebar">
-        <Link href="/" className="settings-brand" aria-label="Ir al sitio web de Ola Bonita">
+        <Link
+          href="/"
+          className="settings-brand"
+          aria-label="Ir al sitio web de Ola Bonita"
+        >
           <span>Ola Bonita</span>
           <small>BEAUTY SPA</small>
         </Link>
@@ -32,7 +41,9 @@ export function SettingsShell({ activeSection, profileRole, sections, children }
           type="button"
           className="settings-collapse"
           onClick={() => setCollapsed((value) => !value)}
-          aria-label={collapsed ? "Expandir menú general" : "Colapsar menú general"}
+          aria-label={
+            collapsed ? "Expandir menú general" : "Colapsar menú general"
+          }
           title={collapsed ? "Expandir menú" : "Colapsar menú"}
         >
           <span aria-hidden="true">‹</span>
@@ -40,15 +51,32 @@ export function SettingsShell({ activeSection, profileRole, sections, children }
         </button>
 
         <nav className="settings-primary-nav" aria-label="Navegación principal">
-          <Link href="/app"><i>▦</i><span>Agenda</span></Link>
-          <Link href="/app/operacion"><i>◇</i><span>Ventas y caja</span></Link>
-          <Link href="/app/analitica"><i>◔</i><span>Analítica</span></Link>
-          <Link href="/app/configuracion" className="active"><i>⚙</i><span>Configuración</span></Link>
+          <Link href="/app">
+            <i>▦</i>
+            <span>Agenda</span>
+          </Link>
+          <Link href="/app/operacion">
+            <i>◇</i>
+            <span>Ventas y caja</span>
+          </Link>
+          <Link href="/app/analitica">
+            <i>◔</i>
+            <span>Analítica</span>
+          </Link>
+          <Link href="/app/configuracion" className="active">
+            <i>⚙</i>
+            <span>Configuración</span>
+          </Link>
         </nav>
 
         <div className="settings-primary-user">
-          <span className="avatar">{profileRole.slice(0, 2).toUpperCase()}</span>
-          <div><strong>Ola Bonita</strong><small>Configuración</small></div>
+          <span className="avatar">
+            {profileRole.slice(0, 2).toUpperCase()}
+          </span>
+          <div>
+            <strong>Ola Bonita</strong>
+            <small>Configuración</small>
+          </div>
         </div>
       </aside>
 
@@ -61,8 +89,13 @@ export function SettingsShell({ activeSection, profileRole, sections, children }
         <nav aria-label="Secciones de configuración">
           {sections.map((section, index) => (
             <div className="settings-nav-group" key={section.id}>
-              {(index === 0 || sections[index - 1].group !== section.group) && <span>{section.group}</span>}
-              <Link href={`/app/configuracion?seccion=${section.id}`} className={activeSection === section.id ? "active" : ""}>
+              {(index === 0 || sections[index - 1].group !== section.group) && (
+                <span>{section.group}</span>
+              )}
+              <Link
+                href={`/app/configuracion/${section.id}`}
+                className={activeSection === section.id ? "active" : ""}
+              >
                 <strong>{section.label}</strong>
                 <small>{section.detail}</small>
               </Link>

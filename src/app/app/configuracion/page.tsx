@@ -13,7 +13,13 @@ import { SettingsShell } from "./settings-shell";
 export const dynamic = "force-dynamic";
 
 type SettingsSection =
-  "agenda" | "equipo" | "pagos" | "catalogo" | "finanzas" | "cabina";
+  | "agenda"
+  | "personal"
+  | "nomina"
+  | "pagos"
+  | "catalogo"
+  | "finanzas"
+  | "cabina";
 
 const sections: Array<{
   id: SettingsSection;
@@ -28,10 +34,16 @@ const sections: Array<{
     detail: "Horarios y capacidad",
   },
   {
-    id: "equipo",
+    id: "personal",
     group: "OPERACIÓN",
-    label: "Equipo y disponibilidad",
-    detail: "Accesos, servicios y horarios",
+    label: "Personal y horarios",
+    detail: "Accesos, servicios y disponibilidad",
+  },
+  {
+    id: "nomina",
+    group: "OPERACIÓN",
+    label: "Nómina",
+    detail: "Comisiones, saldos y pagos",
   },
   {
     id: "pagos",
@@ -59,12 +71,7 @@ const sections: Array<{
   },
 ];
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ seccion?: string }>;
-}) {
-  const query = await searchParams;
+export async function SettingsPageContent({ section }: { section: string }) {
   const supabase = await createServerClient();
   const {
     data: { user },
@@ -86,7 +93,8 @@ export default async function SettingsPage({
   const visibleSections = sections.filter((section) => {
     const required: Record<SettingsSection, string> = {
       agenda: "settings.agenda",
-      equipo: "team.manage",
+      personal: "team.manage",
+      nomina: "team.manage",
       pagos: "settings.payments",
       catalogo: "settings.catalog",
       finanzas: "settings.finance",
@@ -94,11 +102,9 @@ export default async function SettingsPage({
     };
     return granted.includes(required[section.id]);
   });
-  const activeSection = visibleSections.some(
-    (section) => section.id === query.seccion,
-  )
-    ? (query.seccion as SettingsSection)
-    : "agenda";
+  const activeSection = visibleSections.some((item) => item.id === section)
+    ? (section as SettingsSection)
+    : (visibleSections[0]?.id ?? "agenda");
   const admin = createAdminClient();
   const [
     { data: settings },
@@ -126,7 +132,7 @@ export default async function SettingsPage({
     supabase
       .from("business_settings")
       .select(
-        "id, booking_deposit_enabled, booking_deposit_percent, payment_link_expires_minutes, allow_offline_checkout, pos_payment_methods, slot_interval_minutes, web_booking_capacity",
+        "id, booking_deposit_enabled, booking_deposit_percent, payment_link_expires_minutes, allow_offline_checkout, pos_payment_methods, slot_interval_minutes, web_booking_capacity, default_commission_percent",
       )
       .limit(1)
       .maybeSingle(),
@@ -204,7 +210,9 @@ export default async function SettingsPage({
       .select("specialist_id, day_of_week, starts_at, ends_at, active"),
     supabase
       .from("specialist_compensation")
-      .select("specialist_id, scheme, frequency, fixed_amount_cents"),
+      .select(
+        "specialist_id, scheme, frequency, fixed_amount_cents, commission_percent",
+      ),
     supabase
       .from("specialist_earnings")
       .select("specialist_id, amount_cents, paid_at"),
@@ -258,14 +266,28 @@ export default async function SettingsPage({
           />
         </>
       )}{" "}
-      {activeSection === "equipo" && (
+      {activeSection === "personal" && (
         <TeamManager
+          mode="personal"
           initialMembers={membersWithEmail}
           services={teamServices}
           assignments={assignments ?? []}
           initialHours={specialistHours ?? []}
           compensations={compensations ?? []}
           earnings={earnings ?? []}
+          defaultCommissionPercent={settings?.default_commission_percent ?? 0}
+        />
+      )}{" "}
+      {activeSection === "nomina" && (
+        <TeamManager
+          mode="nomina"
+          initialMembers={membersWithEmail}
+          services={teamServices}
+          assignments={assignments ?? []}
+          initialHours={specialistHours ?? []}
+          compensations={compensations ?? []}
+          earnings={earnings ?? []}
+          defaultCommissionPercent={settings?.default_commission_percent ?? 0}
         />
       )}{" "}
       {activeSection === "pagos" && (
@@ -293,4 +315,8 @@ export default async function SettingsPage({
       )}
     </SettingsShell>
   );
+}
+
+export default function SettingsIndex() {
+  redirect("/app/configuracion/agenda");
 }

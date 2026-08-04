@@ -2,7 +2,11 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { defaultPermissionsByRole, PERMISSION_GROUPS, type Permission } from "@/lib/permissions";
+import {
+  defaultPermissionsByRole,
+  PERMISSION_GROUPS,
+  type Permission,
+} from "@/lib/permissions";
 import { RolePermissionManager } from "../configuracion/role-permission-manager";
 
 type Role = "owner" | "manager" | "reception" | "specialist";
@@ -37,6 +41,7 @@ type Compensation = {
   scheme: "per_service" | "fixed_period" | "fixed_plus_commission";
   frequency: "weekly" | "biweekly" | "monthly";
   fixed_amount_cents: number;
+  commission_percent: number | null;
 };
 type Earning = {
   specialist_id: string;
@@ -63,19 +68,23 @@ function categoryName(service: Service) {
 }
 
 export function TeamManager({
+  mode,
   initialMembers,
   services,
   assignments,
   initialHours,
   compensations,
   earnings,
+  defaultCommissionPercent,
 }: {
+  mode: "personal" | "nomina";
   initialMembers: Member[];
   services: Service[];
   assignments: Assignment[];
   initialHours: Hours[];
   compensations: Compensation[];
   earnings: Earning[];
+  defaultCommissionPercent: number;
 }) {
   const firstSpecialistId =
     initialMembers.find((member) => member.role === "specialist")?.id ?? "";
@@ -102,27 +111,28 @@ export function TeamManager({
       .map((item) => item.service_id),
   );
   const [hours, setHours] = useState(() => hoursFor(firstSpecialistId));
-  const [commissions, setCommissions] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      assignments
-        .filter((item) => item.specialist_id === firstSpecialistId)
-        .map((item) => [item.service_id, String(item.commission_cents / 100)]),
-    ),
-  );
   const initialCompensation = compensations.find(
     (item) => item.specialist_id === firstSpecialistId,
   );
   const [compensation, setCompensation] = useState({
     scheme:
       initialCompensation?.scheme ??
-      ("per_service" as "per_service" | "fixed_period" | "fixed_plus_commission"),
+      ("per_service" as
+        "per_service" | "fixed_period" | "fixed_plus_commission"),
     frequency:
       initialCompensation?.frequency ??
       ("weekly" as "weekly" | "biweekly" | "monthly"),
     fixedAmount: initialCompensation
       ? String(initialCompensation.fixed_amount_cents / 100)
       : "",
+    commissionPercent:
+      initialCompensation?.commission_percent == null
+        ? ""
+        : String(initialCompensation.commission_percent),
   });
+  const [globalCommissionPercent, setGlobalCommissionPercent] = useState(
+    String(defaultCommissionPercent),
+  );
   const [invite, setInvite] = useState({
     fullName: "",
     email: "",
@@ -131,7 +141,9 @@ export function TeamManager({
   const [invitePermissions, setInvitePermissions] = useState<Permission[]>(
     defaultPermissionsByRole.specialist,
   );
-  const [roleTemplates, setRoleTemplates] = useState<Record<ConfigurableRole, Permission[]>>(defaultPermissionsByRole);
+  const [roleTemplates, setRoleTemplates] = useState<
+    Record<ConfigurableRole, Permission[]>
+  >(defaultPermissionsByRole);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const specialists = members.filter(
@@ -141,10 +153,20 @@ export function TeamManager({
   useEffect(() => {
     void fetch("/api/role-permissions").then(async (response) => {
       if (!response.ok) return;
-      const result = await response.json() as { templates?: Array<{ role: ConfigurableRole; permissions: Permission[] }> };
+      const result = (await response.json()) as {
+        templates?: Array<{
+          role: ConfigurableRole;
+          permissions: Permission[];
+        }>;
+      };
       const templates = result.templates;
       if (!templates) return;
-      setRoleTemplates((current) => ({ ...current, ...Object.fromEntries(templates.map((template) => [template.role, template.permissions])) }));
+      setRoleTemplates((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          templates.map((template) => [template.role, template.permissions]),
+        ),
+      }));
     });
   }, []);
 
@@ -155,6 +177,12 @@ export function TeamManager({
   const pendingEarnings = earnings
     .filter((item) => item.specialist_id === selectedId && !item.paid_at)
     .reduce((total, item) => total + item.amount_cents, 0);
+  const payrollPending = earnings
+    .filter((item) => !item.paid_at)
+    .reduce((total, item) => total + item.amount_cents, 0);
+  const payrollPaid = earnings
+    .filter((item) => item.paid_at)
+    .reduce((total, item) => total + item.amount_cents, 0);
 
   function selectMember(id: string) {
     setSelectedId(id);
@@ -164,16 +192,6 @@ export function TeamManager({
         .map((item) => item.service_id),
     );
     setHours(hoursFor(id));
-    setCommissions(
-      Object.fromEntries(
-        assignments
-          .filter((item) => item.specialist_id === id)
-          .map((item) => [
-            item.service_id,
-            String(item.commission_cents / 100),
-          ]),
-      ),
-    );
     const savedCompensation = compensations.find(
       (item) => item.specialist_id === id,
     );
@@ -183,6 +201,10 @@ export function TeamManager({
       fixedAmount: savedCompensation
         ? String(savedCompensation.fixed_amount_cents / 100)
         : "",
+      commissionPercent:
+        savedCompensation?.commission_percent == null
+          ? ""
+          : String(savedCompensation.commission_percent),
     });
     setMessage("");
   }
@@ -197,20 +219,37 @@ export function TeamManager({
       const response = await fetch("/api/staff/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...invite, ...(invitePermissions.length === roleTemplates[invite.role].length && invitePermissions.every((permission) => roleTemplates[invite.role].includes(permission)) ? {} : { permissions: invitePermissions }) }),
+        body: JSON.stringify({
+          ...invite,
+          ...(invitePermissions.length === roleTemplates[invite.role].length &&
+          invitePermissions.every((permission) =>
+            roleTemplates[invite.role].includes(permission),
+          )
+            ? {}
+            : { permissions: invitePermissions }),
+        }),
         signal: controller.signal,
       });
-      const result = await response.json().catch(() => ({})) as { id?: string; error?: string };
+      const result = (await response.json().catch(() => ({}))) as {
+        id?: string;
+        error?: string;
+      };
       if (!response.ok) {
-        setMessage(result.error || "No pudimos enviar la invitación. Intenta de nuevo.");
+        setMessage(
+          result.error || "No pudimos enviar la invitación. Intenta de nuevo.",
+        );
         return;
       }
       const invitedId = result.id;
       if (!invitedId) {
-        setMessage("No recibimos confirmación de la invitación. Verifica el equipo antes de volver a intentarlo.");
+        setMessage(
+          "No recibimos confirmación de la invitación. Verifica el equipo antes de volver a intentarlo.",
+        );
         return;
       }
-      setMessage("Invitación enviada. La persona recibirá un correo para crear su acceso.");
+      setMessage(
+        "Invitación enviada. La persona recibirá un correo para crear su acceso.",
+      );
       setMembers((current) => [
         ...current,
         {
@@ -225,7 +264,11 @@ export function TeamManager({
       setInvite({ fullName: "", email: "", role: "specialist" });
       setInvitePermissions(roleTemplates.specialist);
     } catch (error) {
-      setMessage(error instanceof DOMException && error.name === "AbortError" ? "La invitación tardó demasiado. Verifica la conexión e intenta de nuevo." : "No pudimos comunicarnos para enviar la invitación. Intenta de nuevo.");
+      setMessage(
+        error instanceof DOMException && error.name === "AbortError"
+          ? "La invitación tardó demasiado. Verifica la conexión e intenta de nuevo."
+          : "No pudimos comunicarnos para enviar la invitación. Intenta de nuevo.",
+      );
     } finally {
       window.clearTimeout(timeout);
       setBusy(false);
@@ -256,15 +299,11 @@ export function TeamManager({
       p_scheme: compensation.scheme,
       p_frequency: compensation.frequency,
       p_fixed_amount_cents: fixedAmount,
-      p_commissions: selectedServices.map((service_id) => ({
-        service_id,
-        commission_cents: Math.max(
-          0,
-          Math.round(
-            Number((commissions[service_id] || "0").replace(",", ".")) * 100,
-          ),
-        ),
-      })),
+      p_commissions: [],
+      p_commission_percent:
+        compensation.commissionPercent.trim() === ""
+          ? null
+          : Number(compensation.commissionPercent.replace(",", ".")),
     });
     setMessage(
       result.error
@@ -272,6 +311,20 @@ export function TeamManager({
         : "Disponibilidad y esquema de pago guardados.",
     );
     setBusy(false);
+  }
+
+  async function saveGlobalCommission() {
+    const percent = Number(globalCommissionPercent.replace(",", "."));
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100)
+      return setMessage("Escribe un porcentaje entre 0 y 100.");
+    setBusy(true);
+    setMessage("");
+    const { error } = await createClient().rpc(
+      "save_default_commission_percent",
+      { p_percent: percent },
+    );
+    setBusy(false);
+    setMessage(error?.message || "Porcentaje global de comisión guardado.");
   }
 
   async function payPendingEarnings() {
@@ -348,80 +401,155 @@ export function TeamManager({
   }
 
   return (
-    <div className="team-workspace">
-      <RolePermissionManager />
-      <section className="settings-card team-invite">
-        <div>
-          <p className="eyebrow">NUEVO ACCESO</p>
-          <h2>Invita al equipo</h2>
-          <p>
-            Hasta 10 personas. Cada invitación crea una cuenta individual y
-            auditable.
-          </p>
-        </div>
-        <form onSubmit={sendInvite} className="team-invite-form">
-          <input
-            required
-            placeholder="Nombre completo"
-            value={invite.fullName}
-            onChange={(event) =>
-              setInvite({ ...invite, fullName: event.target.value })
-            }
-          />
-          <input
-            required
-            type="email"
-            placeholder="correo@ejemplo.com"
-            value={invite.email}
-            onChange={(event) =>
-              setInvite({ ...invite, email: event.target.value })
-            }
-          />
-          <select
-            value={invite.role}
-            onChange={(event) => {
-              const role = event.target.value as ConfigurableRole;
-              setInvite({
-                ...invite,
-                role,
-              });
-              setInvitePermissions(roleTemplates[role]);
-            }}
-          >
-            <option value="specialist">Especialista</option>
-            <option value="reception">Recepción</option>
-            <option value="manager">Gerencia</option>
-          </select>
-          <button className="new-booking" disabled={busy}>
-            {busy ? "Enviando…" : "Enviar invitación"}
-          </button>
-        </form>
-        <fieldset className="compensation-editor">
-          <legend>Permisos del acceso</legend>
-          <p>El rol propone una plantilla; puedes ajustarla antes de enviar la invitación.</p>
-          {PERMISSION_GROUPS.map((group) => (
-            <div key={group.label} className="service-assignment">
-              <strong>{group.label}</strong>
-              {group.permissions.map((permission) => (
-                <label key={permission.id}>
-                  <input
-                    type="checkbox"
-                    checked={invitePermissions.includes(permission.id)}
-                    onChange={() => setInvitePermissions((current) => current.includes(permission.id) ? current.filter((id) => id !== permission.id) : [...current, permission.id])}
-                  />
-                  <span>{permission.label}</span>
-                </label>
-              ))}
+    <div
+      className={`team-workspace ${mode === "nomina" ? "payroll-workspace" : "personal-workspace"}`}
+    >
+      {mode === "personal" && (
+        <>
+          <RolePermissionManager />
+          <section className="settings-card team-invite">
+            <div>
+              <p className="eyebrow">NUEVO ACCESO</p>
+              <h2>Invita al equipo</h2>
+              <p>
+                Hasta 10 personas. Cada invitación crea una cuenta individual y
+                auditable.
+              </p>
             </div>
-          ))}
-        </fieldset>
-      </section>
+            <form onSubmit={sendInvite} className="team-invite-form">
+              <input
+                required
+                placeholder="Nombre completo"
+                value={invite.fullName}
+                onChange={(event) =>
+                  setInvite({ ...invite, fullName: event.target.value })
+                }
+              />
+              <input
+                required
+                type="email"
+                placeholder="correo@ejemplo.com"
+                value={invite.email}
+                onChange={(event) =>
+                  setInvite({ ...invite, email: event.target.value })
+                }
+              />
+              <select
+                value={invite.role}
+                onChange={(event) => {
+                  const role = event.target.value as ConfigurableRole;
+                  setInvite({
+                    ...invite,
+                    role,
+                  });
+                  setInvitePermissions(roleTemplates[role]);
+                }}
+              >
+                <option value="specialist">Especialista</option>
+                <option value="reception">Recepción</option>
+                <option value="manager">Gerencia</option>
+              </select>
+              <button className="new-booking" disabled={busy}>
+                {busy ? "Enviando…" : "Enviar invitación"}
+              </button>
+            </form>
+            <fieldset className="compensation-editor">
+              <legend>Permisos del acceso</legend>
+              <p>
+                El rol propone una plantilla; puedes ajustarla antes de enviar
+                la invitación.
+              </p>
+              {PERMISSION_GROUPS.map((group) => (
+                <div key={group.label} className="service-assignment">
+                  <strong>{group.label}</strong>
+                  {group.permissions.map((permission) => (
+                    <label key={permission.id}>
+                      <input
+                        type="checkbox"
+                        checked={invitePermissions.includes(permission.id)}
+                        onChange={() =>
+                          setInvitePermissions((current) =>
+                            current.includes(permission.id)
+                              ? current.filter((id) => id !== permission.id)
+                              : [...current, permission.id],
+                          )
+                        }
+                      />
+                      <span>{permission.label}</span>
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </fieldset>
+          </section>
+        </>
+      )}
+      {mode === "nomina" && (
+        <section className="payroll-summary" aria-label="Resumen de nómina">
+          <article>
+            <span>POR PAGAR</span>
+            <strong>${(payrollPending / 100).toFixed(2)}</strong>
+            <small>Comisiones pendientes</small>
+          </article>
+          <article>
+            <span>PAGADO</span>
+            <strong>${(payrollPaid / 100).toFixed(2)}</strong>
+            <small>Pagos registrados</small>
+          </article>
+          <article>
+            <span>PERSONAL ACTIVO</span>
+            <strong>{specialists.length}</strong>
+            <small>Especialistas con acceso</small>
+          </article>
+        </section>
+      )}
+      {mode === "nomina" && (
+        <section className="settings-card compensation-default-card">
+          <p className="eyebrow">COMISIONES</p>
+          <h2>Porcentaje predeterminado</h2>
+          <p>
+            Se aplica automáticamente al equipo y a prestadores externos. Cada
+            especialista puede usar un porcentaje distinto.
+          </p>
+          <div className="compensation-default-input">
+            <label>
+              Porcentaje global
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={globalCommissionPercent}
+                onChange={(event) =>
+                  setGlobalCommissionPercent(event.target.value)
+                }
+              />
+            </label>
+            <button
+              type="button"
+              className="new-booking"
+              disabled={busy}
+              onClick={saveGlobalCommission}
+            >
+              Guardar porcentaje
+            </button>
+          </div>
+        </section>
+      )}
       <section className="team-configuration">
         <aside className="settings-card member-list">
           <div className="section-top">
             <div>
-              <h2>Especialistas</h2>
-              <p>{specialists.length} de 10 accesos activos</p>
+              <h2>
+                {mode === "nomina"
+                  ? "Saldos por especialista"
+                  : "Especialistas"}
+              </h2>
+              <p>
+                {mode === "nomina"
+                  ? "Selecciona una persona para revisar y pagar"
+                  : `${specialists.length} de 10 accesos activos`}
+              </p>
             </div>
           </div>
           {specialists.length ? (
@@ -456,7 +584,11 @@ export function TeamManager({
         <section className="settings-card availability-card">
           <div className="member-detail-heading">
             <div>
-              <p className="eyebrow">DISPONIBILIDAD Y PAGO</p>
+              <p className="eyebrow">
+                {mode === "nomina"
+                  ? "NÓMINA Y COMISIONES"
+                  : "PERSONAL Y DISPONIBILIDAD"}
+              </p>
               <h2>
                 {selectedMember
                   ? selectedMember.full_name
@@ -466,7 +598,7 @@ export function TeamManager({
                 <p className="member-email">{selectedMember.email}</p>
               )}
             </div>
-            {selectedMember && (
+            {selectedMember && mode === "personal" && (
               <div className="member-actions">
                 <button
                   type="button"
@@ -490,10 +622,11 @@ export function TeamManager({
           {selectedMember ? (
             <>
               <p>
-                Indica qué puede atender, el pago acordado y sus horas. Una
-                comisión se congela al finalizar la cita.
+                {mode === "nomina"
+                  ? "Revisa el porcentaje aplicado, el saldo pendiente y registra el pago cuando corresponda."
+                  : "Indica qué puede atender y sus horas disponibles."}
               </p>
-              {compensation.scheme !== "fixed_period" && (
+              {mode === "nomina" && compensation.scheme !== "fixed_period" && (
                 <div className="pending-earnings">
                   <span>Comisiones pendientes</span>
                   <strong>${(pendingEarnings / 100).toFixed(2)} MXN</strong>
@@ -507,185 +640,210 @@ export function TeamManager({
                   </button>
                 </div>
               )}
-              <fieldset className="compensation-editor">
-                <legend>Esquema de pago</legend>
-                <label>
-                  <input
-                    type="radio"
-                    checked={compensation.scheme === "per_service"}
-                    onChange={() =>
-                      setCompensation({
-                        ...compensation,
-                        scheme: "per_service",
-                      })
-                    }
-                  />{" "}
-                  Comisión por servicio realizado
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    checked={compensation.scheme === "fixed_period"}
-                    onChange={() =>
-                      setCompensation({
-                        ...compensation,
-                        scheme: "fixed_period",
-                      })
-                    }
-                  />{" "}
-                  Pago fijo por periodo
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    checked={compensation.scheme === "fixed_plus_commission"}
-                    onChange={() =>
-                      setCompensation({
-                        ...compensation,
-                        scheme: "fixed_plus_commission",
-                      })
-                    }
-                  />{" "}
-                  Fijo + comisión por servicio
-                </label>
-                {compensation.scheme !== "per_service" && (
-                  <div>
+              {mode === "nomina" && (
+                <fieldset className="compensation-editor">
+                  <legend>Esquema de pago</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      checked={compensation.scheme === "per_service"}
+                      onChange={() =>
+                        setCompensation({
+                          ...compensation,
+                          scheme: "per_service",
+                        })
+                      }
+                    />{" "}
+                    Comisión por servicio realizado
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      checked={compensation.scheme === "fixed_period"}
+                      onChange={() =>
+                        setCompensation({
+                          ...compensation,
+                          scheme: "fixed_period",
+                        })
+                      }
+                    />{" "}
+                    Pago fijo por periodo
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      checked={compensation.scheme === "fixed_plus_commission"}
+                      onChange={() =>
+                        setCompensation({
+                          ...compensation,
+                          scheme: "fixed_plus_commission",
+                        })
+                      }
+                    />{" "}
+                    Fijo + comisión por servicio
+                  </label>
+                  {compensation.scheme !== "per_service" && (
+                    <div>
+                      <label>
+                        Importe fijo{" "}
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={compensation.fixedAmount}
+                          onChange={(event) =>
+                            setCompensation({
+                              ...compensation,
+                              fixedAmount: event.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Frecuencia{" "}
+                        <select
+                          value={compensation.frequency}
+                          onChange={(event) =>
+                            setCompensation({
+                              ...compensation,
+                              frequency: event.target
+                                .value as typeof compensation.frequency,
+                            })
+                          }
+                        >
+                          <option value="weekly">Semanal</option>
+                          <option value="biweekly">Quincenal</option>
+                          <option value="monthly">Mensual</option>
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                  {compensation.scheme !== "fixed_period" && (
                     <label>
-                      Importe fijo{" "}
+                      Porcentaje de comisión
                       <input
                         type="number"
                         min="0"
+                        max="100"
                         step="0.01"
-                        value={compensation.fixedAmount}
+                        value={compensation.commissionPercent}
                         onChange={(event) =>
                           setCompensation({
                             ...compensation,
-                            fixedAmount: event.target.value,
+                            commissionPercent: event.target.value,
                           })
                         }
+                        placeholder={`Global: ${globalCommissionPercent}%`}
                       />
-                    </label>
-                    <label>
-                      Frecuencia{" "}
-                      <select
-                        value={compensation.frequency}
-                        onChange={(event) =>
-                          setCompensation({
-                            ...compensation,
-                            frequency: event.target
-                              .value as typeof compensation.frequency,
-                          })
-                        }
-                      >
-                        <option value="weekly">Semanal</option>
-                        <option value="biweekly">Quincenal</option>
-                        <option value="monthly">Mensual</option>
-                      </select>
-                    </label>
-                  </div>
-                )}
-              </fieldset>
-              <div className="commission-services-heading"><strong>Servicios que atiende y comisión por servicio</strong><small>Marca los que realiza esta especialista; escribe a la derecha el monto que recibe por cada uno.</small></div>
-              <div className="service-assignment">
-                {services.map((service) => (
-                  <label key={service.id}>
-                    <input
-                      type="checkbox"
-                      checked={selectedServices.includes(service.id)}
-                      onChange={() =>
-                        setSelectedServices((current) =>
-                          current.includes(service.id)
-                            ? current.filter((id) => id !== service.id)
-                            : [...current, service.id],
-                        )
-                      }
-                    />
-                    <span>
-                      <strong>{service.name}</strong>
                       <small>
-                        {categoryName(service)} · {service.duration_minutes} min
+                        Déjalo vacío para usar el porcentaje global.
                       </small>
-                      {compensation.scheme !== "fixed_period" &&
-                        selectedServices.includes(service.id) && (
-                          <em>
-                            Comisión ${" "}
-                            <input
-                              aria-label={`Comisión de ${service.name}`}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={commissions[service.id] ?? ""}
-                              onChange={(event) =>
-                                setCommissions({
-                                  ...commissions,
-                                  [service.id]: event.target.value,
-                                })
-                              }
-                            />
-                          </em>
-                        )}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <div className="hours-editor">
-                {hours.map((day, index) => (
-                  <div key={day.day_of_week}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={day.active}
-                        onChange={(event) =>
-                          setHours((current) =>
-                            current.map((item, itemIndex) =>
-                              itemIndex === index
-                                ? { ...item, active: event.target.checked }
-                                : item,
-                            ),
-                          )
-                        }
-                      />{" "}
-                      {days[day.day_of_week]}
                     </label>
-                    <input
-                      type="time"
-                      disabled={!day.active}
-                      value={day.starts_at}
-                      onChange={(event) =>
-                        setHours((current) =>
-                          current.map((item, itemIndex) =>
-                            itemIndex === index
-                              ? { ...item, starts_at: event.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                    />
-                    <span>—</span>
-                    <input
-                      type="time"
-                      disabled={!day.active}
-                      value={day.ends_at}
-                      onChange={(event) =>
-                        setHours((current) =>
-                          current.map((item, itemIndex) =>
-                            itemIndex === index
-                              ? { ...item, ends_at: event.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                    />
+                  )}
+                </fieldset>
+              )}
+              {mode === "personal" && (
+                <>
+                  <div className="commission-services-heading">
+                    <strong>Servicios que atiende</strong>
+                    <small>
+                      La comisión se calcula con su porcentaje sobre el importe
+                      final cobrado; no necesitas definir un monto por servicio.
+                    </small>
                   </div>
-                ))}
-              </div>
-              <button
-                className="new-booking"
-                onClick={saveAvailability}
-                disabled={busy}
-              >
-                {busy ? "Guardando…" : "Guardar disponibilidad y pago"}
-              </button>
+                  <div className="service-assignment">
+                    {services.map((service) => (
+                      <label key={service.id}>
+                        <input
+                          type="checkbox"
+                          checked={selectedServices.includes(service.id)}
+                          onChange={() =>
+                            setSelectedServices((current) =>
+                              current.includes(service.id)
+                                ? current.filter((id) => id !== service.id)
+                                : [...current, service.id],
+                            )
+                          }
+                        />
+                        <span>
+                          <strong>{service.name}</strong>
+                          <small>
+                            {categoryName(service)} · {service.duration_minutes}{" "}
+                            min
+                          </small>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="hours-editor">
+                    {hours.map((day, index) => (
+                      <div key={day.day_of_week}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={day.active}
+                            onChange={(event) =>
+                              setHours((current) =>
+                                current.map((item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, active: event.target.checked }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />{" "}
+                          {days[day.day_of_week]}
+                        </label>
+                        <input
+                          type="time"
+                          disabled={!day.active}
+                          value={day.starts_at}
+                          onChange={(event) =>
+                            setHours((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, starts_at: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                        <span>—</span>
+                        <input
+                          type="time"
+                          disabled={!day.active}
+                          value={day.ends_at}
+                          onChange={(event) =>
+                            setHours((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, ends_at: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    className="new-booking"
+                    onClick={saveAvailability}
+                    disabled={busy}
+                  >
+                    {busy ? "Guardando…" : "Guardar disponibilidad"}
+                  </button>
+                </>
+              )}
+              {mode === "nomina" && (
+                <button
+                  className="new-booking"
+                  onClick={saveAvailability}
+                  disabled={busy}
+                >
+                  {busy ? "Guardando…" : "Guardar esquema de pago"}
+                </button>
+              )}
             </>
           ) : (
             <p>
