@@ -4,14 +4,257 @@ import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Hint } from "./hint";
 
-type Item = { id:string; name:string; color:string; active:boolean; sort_order:number };
-const colors = ["#397c75", "#7287b5", "#bd8b46", "#d9787b", "#9877ad", "#4c9c8b"];
+type Item = {
+  id: string;
+  name: string;
+  color: string;
+  active: boolean;
+  sort_order: number;
+};
+const colors = [
+  "#397c75",
+  "#7287b5",
+  "#bd8b46",
+  "#d9787b",
+  "#9877ad",
+  "#4c9c8b",
+];
 
-export function FinanceSettings({ categories, tags }: { categories:Item[]; tags:Item[] }) {
-  const client = createClient(); const [categoryName, setCategoryName] = useState(""); const [tagName, setTagName] = useState(""); const [busy, setBusy] = useState(false); const [message, setMessage] = useState(""); const [editing, setEditing] = useState<{table:"finance_categories"|"finance_tags"; id:string}|null>(null); const [editName, setEditName] = useState(""); const [editColor, setEditColor] = useState(colors[0]);
-  async function add(event:FormEvent, table:"finance_categories"|"finance_tags", name:string, clear:()=>void, length:number) { event.preventDefault(); if (!name.trim()) return; setBusy(true); const { error } = await client.from(table).insert({ name:name.trim(), color:colors[length % colors.length], sort_order:length }); setBusy(false); if (error) return setMessage(error.message); clear(); setMessage("Guardado. Recargando…"); window.setTimeout(() => window.location.reload(), 400); }
-  async function toggle(table:"finance_categories"|"finance_tags", item:Item) { setBusy(true); const { error } = await client.from(table).update({ active:!item.active }).eq("id", item.id); setBusy(false); if (error) return setMessage(error.message); window.location.reload(); }
-  async function saveEdit(table:"finance_categories"|"finance_tags", item:Item) { if (!editName.trim()) return; setBusy(true); const { error } = await client.from(table).update({ name:editName.trim(), color:editColor }).eq("id", item.id); setBusy(false); if (error) return setMessage(error.message); setEditing(null); setMessage("Cambios guardados."); window.setTimeout(()=>window.location.reload(), 300); }
-  const block = (title:string, help:string, hint:string, list:Item[], table:"finance_categories"|"finance_tags", value:string, change:(value:string)=>void, clear:()=>void, placeholder:string) => <section className="settings-card finance-settings-card"><p className="eyebrow">{title.toUpperCase()}</p><h2>{title} <Hint text={hint} /></h2><p className="catalog-help">{help}</p><form className="inline-add" onSubmit={(event) => add(event, table, value, clear, list.length)}><input title={`Nombre de ${title.toLowerCase()}`} value={value} onChange={(event)=>change(event.target.value)} placeholder={placeholder}/><button className="new-booking" disabled={busy}>Agregar</button></form><div className="finance-tag-list">{list.map((item)=>{ const isEditing=editing?.table===table&&editing.id===item.id; return <div key={item.id}>{isEditing ? <><input className="finance-edit-name" value={editName} onChange={(event)=>setEditName(event.target.value)} aria-label={`Nombre de ${item.name}`}/><input className="finance-color-input" type="color" value={editColor} onChange={(event)=>setEditColor(event.target.value)} aria-label="Color"/><button type="button" className="finance-save" disabled={busy} onClick={()=>saveEdit(table,item)}>Guardar</button><button type="button" className="finance-cancel" onClick={()=>setEditing(null)}>Cancelar</button></> : <><span className="finance-color" style={{ background:item.color }}/><strong>{item.name}</strong><button type="button" className="finance-edit" onClick={()=>{setEditing({table,id:item.id});setEditName(item.name);setEditColor(item.color);}}>Editar</button><label className="table-toggle"><input type="checkbox" checked={item.active} disabled={busy} onChange={()=>toggle(table,item)}/><span>{item.active ? "Activa" : "Pausada"} <Hint text="Oculta o muestra esta opción." /></span></label></>}</div>; })}</div></section>;
-  return <section className="finance-settings"><header><p className="eyebrow">FINANZAS</p><h1>Gastos, categorías y etiquetas</h1><p>Las categorías aparecen como un menú al registrar un gasto. Las etiquetas permiten clasificar cada movimiento como en Spendee.</p></header><div className="finance-settings-grid">{block("Categorías de gasto", "Agrupan el gasto principal: selecciona una al registrarlo.", "Elige una por cada gasto.", categories, "finance_categories", categoryName, setCategoryName, ()=>setCategoryName(""), "Ej. Insumos")}{block("Etiquetas", "Puedes seleccionar varias en cada gasto para filtrar y analizar después.", "Añade varias para filtrar gastos.", tags, "finance_tags", tagName, setTagName, ()=>setTagName(""), "Ej. Recurrente")}</div>{message && <p className="access-message">{message}</p>}</section>;
+export function FinanceSettings({
+  categories,
+  tags,
+}: {
+  categories: Item[];
+  tags: Item[];
+}) {
+  const client = createClient();
+  const [categoryName, setCategoryName] = useState("");
+  const [tagName, setTagName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [editing, setEditing] = useState<{
+    table: "finance_categories" | "finance_tags";
+    id: string;
+  } | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState(colors[0]);
+  async function add(
+    event: FormEvent,
+    table: "finance_categories" | "finance_tags",
+    name: string,
+    clear: () => void,
+    length: number,
+  ) {
+    event.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    const { error } = await client
+      .from(table)
+      .insert({
+        name: name.trim(),
+        color: colors[length % colors.length],
+        sort_order: length,
+      });
+    setBusy(false);
+    if (error) return setMessage(error.message);
+    clear();
+    setMessage("Guardado. Recargando…");
+    window.setTimeout(() => window.location.reload(), 400);
+  }
+  async function toggle(
+    table: "finance_categories" | "finance_tags",
+    item: Item,
+  ) {
+    setBusy(true);
+    const { error } = await client
+      .from(table)
+      .update({ active: !item.active })
+      .eq("id", item.id);
+    setBusy(false);
+    if (error) return setMessage(error.message);
+    window.location.reload();
+  }
+  async function saveEdit(
+    table: "finance_categories" | "finance_tags",
+    item: Item,
+  ) {
+    if (!editName.trim()) return;
+    setBusy(true);
+    const { error } = await client
+      .from(table)
+      .update({ name: editName.trim(), color: editColor })
+      .eq("id", item.id);
+    setBusy(false);
+    if (error) return setMessage(error.message);
+    setEditing(null);
+    setMessage("Cambios guardados.");
+    window.setTimeout(() => window.location.reload(), 300);
+  }
+  async function removeCategory(item: Item) {
+    const confirmed = window.confirm(
+      `¿Eliminar la categoría “${item.name}”? Los gastos ya registrados conservarán su historial con este nombre.`,
+    );
+    if (!confirmed) return;
+    setBusy(true);
+    const { error } = await client
+      .from("finance_categories")
+      .delete()
+      .eq("id", item.id);
+    setBusy(false);
+    if (error) return setMessage(error.message);
+    setMessage("Categoría eliminada. Recargando…");
+    window.setTimeout(() => window.location.reload(), 300);
+  }
+  const block = (
+    title: string,
+    help: string,
+    hint: string,
+    list: Item[],
+    table: "finance_categories" | "finance_tags",
+    value: string,
+    change: (value: string) => void,
+    clear: () => void,
+    placeholder: string,
+  ) => (
+    <section className="settings-card finance-settings-card">
+      <p className="eyebrow">{title.toUpperCase()}</p>
+      <h2>
+        {title} <Hint text={hint} />
+      </h2>
+      <p className="catalog-help">{help}</p>
+      <form
+        className="inline-add"
+        onSubmit={(event) => add(event, table, value, clear, list.length)}
+      >
+        <input
+          title={`Nombre de ${title.toLowerCase()}`}
+          value={value}
+          onChange={(event) => change(event.target.value)}
+          placeholder={placeholder}
+        />
+        <button className="new-booking" disabled={busy}>
+          Agregar
+        </button>
+      </form>
+      <div className="finance-tag-list">
+        {list.map((item) => {
+          const isEditing = editing?.table === table && editing.id === item.id;
+          return (
+            <div key={item.id}>
+              {isEditing ? (
+                <>
+                  <input
+                    className="finance-edit-name"
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                    aria-label={`Nombre de ${item.name}`}
+                  />
+                  <input
+                    className="finance-color-input"
+                    type="color"
+                    value={editColor}
+                    onChange={(event) => setEditColor(event.target.value)}
+                    aria-label="Color"
+                  />
+                  <button
+                    type="button"
+                    className="finance-save"
+                    disabled={busy}
+                    onClick={() => saveEdit(table, item)}
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    className="finance-cancel"
+                    onClick={() => setEditing(null)}
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span
+                    className="finance-color"
+                    style={{ background: item.color }}
+                  />
+                  <strong>{item.name}</strong>
+                  <button
+                    type="button"
+                    className="finance-edit"
+                    onClick={() => {
+                      setEditing({ table, id: item.id });
+                      setEditName(item.name);
+                      setEditColor(item.color);
+                    }}
+                  >
+                    Editar
+                  </button>
+                  {table === "finance_categories" && (
+                    <button
+                      type="button"
+                      className="finance-delete"
+                      disabled={busy}
+                      onClick={() => removeCategory(item)}
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                  <label className="table-toggle">
+                    <input
+                      type="checkbox"
+                      checked={item.active}
+                      disabled={busy}
+                      onChange={() => toggle(table, item)}
+                    />
+                    <span>
+                      {item.active ? "Activa" : "Pausada"}{" "}
+                      <Hint text="Oculta o muestra esta opción." />
+                    </span>
+                  </label>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+  return (
+    <section className="finance-settings">
+      <header>
+        <p className="eyebrow">FINANZAS</p>
+        <h1>Gastos, categorías y etiquetas</h1>
+        <p>
+          Las categorías aparecen como un menú al registrar un gasto. Las
+          etiquetas permiten clasificar cada movimiento como en Spendee.
+        </p>
+      </header>
+      <div className="finance-settings-grid">
+        {block(
+          "Categorías de gasto",
+          "Agrupan el gasto principal: selecciona una al registrarlo.",
+          "Elige una por cada gasto.",
+          categories,
+          "finance_categories",
+          categoryName,
+          setCategoryName,
+          () => setCategoryName(""),
+          "Ej. Insumos",
+        )}
+        {block(
+          "Etiquetas",
+          "Puedes seleccionar varias en cada gasto para filtrar y analizar después.",
+          "Añade varias para filtrar gastos.",
+          tags,
+          "finance_tags",
+          tagName,
+          setTagName,
+          () => setTagName(""),
+          "Ej. Recurrente",
+        )}
+      </div>
+      {message && <p className="access-message">{message}</p>}
+    </section>
+  );
 }
