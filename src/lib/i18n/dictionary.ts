@@ -116,7 +116,7 @@ export const dictionary = {
       ],
       backHome: "Volver al inicio",
     },
-    announcement: { text: "Reserva tu cita: +52 954 201 0059" },
+    announcement: { text: "Reserva tu cita" },
     whatsappFab: { tooltip: "Reserva por WhatsApp" },
     langSwitcher: { label: "Cambiar idioma" },
     booking: {
@@ -323,7 +323,7 @@ export const dictionary = {
       ],
       backHome: "Back to home",
     },
-    announcement: { text: "Book your appointment: +52 954 201 0059" },
+    announcement: { text: "Book your appointment" },
     whatsappFab: { tooltip: "Book via WhatsApp" },
     langSwitcher: { label: "Change language" },
     booking: {

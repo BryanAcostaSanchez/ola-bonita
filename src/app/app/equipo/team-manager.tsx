@@ -48,6 +48,14 @@ type Earning = {
   amount_cents: number;
   paid_at: string | null;
 };
+type ExternalPayment = {
+  id: string;
+  external_provider_name: string | null;
+  description: string;
+  amount_cents: number;
+  payment_method: string;
+  created_at: string;
+};
 type ConfigurableRole = Exclude<Role, "owner">;
 
 const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -75,6 +83,7 @@ export function TeamManager({
   initialHours,
   compensations,
   earnings,
+  externalPayments,
   defaultCommissionPercent,
 }: {
   mode: "personal" | "nomina";
@@ -84,6 +93,7 @@ export function TeamManager({
   initialHours: Hours[];
   compensations: Compensation[];
   earnings: Earning[];
+  externalPayments: ExternalPayment[];
   defaultCommissionPercent: number;
 }) {
   const firstSpecialistId =
@@ -183,6 +193,19 @@ export function TeamManager({
   const payrollPaid = earnings
     .filter((item) => item.paid_at)
     .reduce((total, item) => total + item.amount_cents, 0);
+  const weekStart = useMemo(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+    return date.getTime();
+  }, []);
+  const externalThisWeek = externalPayments.filter(
+    (item) => new Date(item.created_at).getTime() >= weekStart,
+  );
+  const externalPaidThisWeek = externalThisWeek.reduce(
+    (total, item) => total + item.amount_cents,
+    0,
+  );
 
   function selectMember(id: string) {
     setSelectedId(id);
@@ -332,21 +355,21 @@ export function TeamManager({
       !selectedId ||
       !pendingEarnings ||
       !window.confirm(
-        `¿Registrar $${(pendingEarnings / 100).toFixed(2)} como pagados a esta especialista?`,
+        `¿Cerrar y registrar $${(pendingEarnings / 100).toFixed(2)} como pagados en el corte dominical?`,
       )
     )
       return;
     setBusy(true);
     setMessage("");
     const { error } = await createClient().rpc(
-      "pay_pending_specialist_earnings",
+      "pay_current_week_specialist_earnings",
       { p_specialist_id: selectedId },
     );
     setBusy(false);
     setMessage(
       error
         ? error.message
-        : "Pago registrado. Recarga la página para ver el saldo actualizado.",
+        : "Corte semanal registrado. Recarga la página para ver el saldo actualizado.",
     );
   }
 
@@ -497,10 +520,61 @@ export function TeamManager({
             <small>Pagos registrados</small>
           </article>
           <article>
-            <span>PERSONAL ACTIVO</span>
-            <strong>{specialists.length}</strong>
-            <small>Especialistas con acceso</small>
+            <span>EXTERNOS PAGADOS</span>
+            <strong>${(externalPaidThisWeek / 100).toFixed(2)}</strong>
+            <small>Liquidado esta semana</small>
           </article>
+        </section>
+      )}
+      {mode === "nomina" && (
+        <aside className="payroll-cutoff-note">
+          <strong>Corte semanal: domingo</strong>
+          <span>
+            El equipo acumula comisiones durante la semana y se paga en el corte
+            dominical. Los prestadores externos se liquidan al finalizar cada
+            servicio y se reportan aquí como pagos inmediatos.
+          </span>
+        </aside>
+      )}
+      {mode === "nomina" && (
+        <section className="settings-card external-payments-card">
+          <div className="section-top">
+            <div>
+              <p className="eyebrow">PAGOS INMEDIATOS</p>
+              <h2>Prestadores externos</h2>
+              <p>
+                Ya fueron liquidados al finalizar sus servicios; no esperan al
+                domingo.
+              </p>
+            </div>
+            <strong>{externalThisWeek.length} esta semana</strong>
+          </div>
+          {externalThisWeek.length ? (
+            <div className="external-payment-list">
+              {externalThisWeek.slice(0, 8).map((payment) => (
+                <div key={payment.id}>
+                  <span>
+                    <strong>
+                      {payment.external_provider_name || "Prestador externo"}
+                    </strong>
+                    <small>
+                      {payment.description} ·{" "}
+                      {payment.payment_method === "cash"
+                        ? "Efectivo"
+                        : payment.payment_method === "card"
+                          ? "Tarjeta"
+                          : "Transferencia"}
+                    </small>
+                  </span>
+                  <b>${(payment.amount_cents / 100).toFixed(2)}</b>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-services">
+              No hay pagos a externos registrados esta semana.
+            </p>
+          )}
         </section>
       )}
       {mode === "nomina" && (
@@ -623,12 +697,12 @@ export function TeamManager({
             <>
               <p>
                 {mode === "nomina"
-                  ? "Revisa el porcentaje aplicado, el saldo pendiente y registra el pago cuando corresponda."
+                  ? "Revisa el porcentaje aplicado y cierra el pago semanal los domingos. Los externos se liquidan al finalizar cada servicio."
                   : "Indica qué puede atender y sus horas disponibles."}
               </p>
               {mode === "nomina" && compensation.scheme !== "fixed_period" && (
                 <div className="pending-earnings">
-                  <span>Comisiones pendientes</span>
+                  <span>Comisiones del equipo pendientes</span>
                   <strong>${(pendingEarnings / 100).toFixed(2)} MXN</strong>
                   <button
                     type="button"
@@ -636,7 +710,7 @@ export function TeamManager({
                     disabled={busy || !pendingEarnings}
                     onClick={payPendingEarnings}
                   >
-                    Registrar pago
+                    Cerrar pago dominical
                   </button>
                 </div>
               )}

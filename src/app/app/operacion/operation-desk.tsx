@@ -420,7 +420,7 @@ export function OperationDesk({
       customDraft.externalProvider &&
       !customDraft.externalProviderName.trim()
     )
-      return setNotice("Indica el nombre y la comisión del prestador externo.");
+      return setNotice("Indica el nombre del prestador externo.");
     if (
       commissionPercent > 0 &&
       !customDraft.externalProvider &&
@@ -763,8 +763,9 @@ export function OperationDesk({
                         </option>
                       </select>
                       <small>
-                        Usa el porcentaje global por defecto o cámbialo para
-                        esta venta. Al cobrar, se registra como gasto vinculado.
+                        Se liquida al finalizar este servicio. Usa el porcentaje
+                        global por defecto o cámbialo para esta venta; al
+                        cobrar, se registra como gasto vinculado.
                       </small>
                     </div>
                   ) : Number(customDraft.commissionPercent || 0) > 0 &&

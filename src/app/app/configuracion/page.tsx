@@ -126,6 +126,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
     { data: specialistHours },
     { data: compensations },
     { data: earnings },
+    { data: externalPayments },
     { data: authUsers },
     { data: roleTemplates },
   ] = await Promise.all([
@@ -216,6 +217,14 @@ export async function SettingsPageContent({ section }: { section: string }) {
     supabase
       .from("specialist_earnings")
       .select("specialist_id, amount_cents, paid_at"),
+    supabase
+      .from("expenses")
+      .select(
+        "id, external_provider_name, description, amount_cents, payment_method, created_at",
+      )
+      .eq("category", "Comisión externa")
+      .order("created_at", { ascending: false })
+      .limit(100),
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     admin.from("role_permission_templates").select("role,permissions"),
   ]);
@@ -275,6 +284,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
           initialHours={specialistHours ?? []}
           compensations={compensations ?? []}
           earnings={earnings ?? []}
+          externalPayments={externalPayments ?? []}
           defaultCommissionPercent={settings?.default_commission_percent ?? 0}
         />
       )}{" "}
@@ -287,6 +297,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
           initialHours={specialistHours ?? []}
           compensations={compensations ?? []}
           earnings={earnings ?? []}
+          externalPayments={externalPayments ?? []}
           defaultCommissionPercent={settings?.default_commission_percent ?? 0}
         />
       )}{" "}

@@ -55,7 +55,10 @@
   right: 68px;
   transform: translateX(12px) scale(0.96);
   transform-origin: right bottom;
-  transition: opacity 0.28s ease, transform 0.28s ease, visibility 0.28s;
+  transition:
+    opacity 0.28s ease,
+    transform 0.28s ease,
+    visibility 0.28s;
   visibility: hidden;
   white-space: nowrap;
 }
@@ -99,43 +102,6 @@
   100% {
     opacity: 0;
     transform: scale(1.9);
-  }
-}
-.whatsapp-fab-badge {
-  align-items: center;
-  background: #ff3b30;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  color: #fff;
-  display: flex;
-  font-size: 11px;
-  font-weight: 700;
-  height: 20px;
-  justify-content: center;
-  position: absolute;
-  right: -3px;
-  top: -3px;
-  z-index: 2;
-  width: 20px;
-}
-.whatsapp-fab-tooltip {
-  background: #0f3d3d;
-  border-radius: 7px;
-  color: #fff;
-  font-size: 12px;
-  opacity: 0;
-  padding: 8px 13px;
-  pointer-events: none;
-  position: absolute;
-  right: 66px;
-  top: 50%;
-  transform: translateY(-50%);
-  transition: opacity 0.18s;
-  white-space: nowrap;
-}
-@media (hover: hover) {
-  .whatsapp-fab:hover .whatsapp-fab-tooltip {
-    opacity: 1;
   }
 }
 @media (max-width: 560px) {
@@ -6610,6 +6576,56 @@ footer > a {
     grid-template-columns: 1fr;
   }
 }
+.payroll-cutoff-note {
+  align-items: flex-start;
+  background: #fff7e8;
+  border: 1px solid #edcf9d;
+  border-radius: 10px;
+  color: #675336;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: auto 1fr;
+  margin: -4px 0 20px;
+  padding: 13px 15px;
+}
+.payroll-cutoff-note strong {
+  font-size: 12px;
+}
+.payroll-cutoff-note span {
+  font-size: 11px;
+  line-height: 1.45;
+}
+.external-payments-card {
+  margin-bottom: 20px;
+}
+.external-payment-list {
+  border-top: 1px solid #e5ece8;
+  margin-top: 16px;
+}
+.external-payment-list > div {
+  align-items: center;
+  border-bottom: 1px solid #e5ece8;
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+.external-payment-list strong,
+.external-payment-list small {
+  display: block;
+}
+.external-payment-list strong {
+  color: #365e5b;
+  font-size: 12px;
+}
+.external-payment-list small {
+  color: #748c87;
+  font-size: 10px;
+  margin-top: 3px;
+}
+.external-payment-list b {
+  color: #a45b49;
+  font-size: 13px;
+}
 .compensation-editor {
   border: 1px solid #e2eae7;
   border-radius: 8px;
@@ -6832,7 +6848,10 @@ footer > a {
   align-items: center;
   display: grid;
   gap: 48px;
-  grid-template-columns: minmax(230px, 1fr) minmax(400px, 1.55fr) minmax(230px, 1fr);
+  grid-template-columns: minmax(230px, 1fr) minmax(400px, 1.55fr) minmax(
+      230px,
+      1fr
+    );
   margin: auto;
   max-width: 1280px;
 }
