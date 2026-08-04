@@ -291,6 +291,7 @@ export default async function AppDashboard() {
           specialists={agendaSpecialists}
           specialistHours={weeklySpecialistHours ?? []}
           canAssign={granted.includes("bookings.assign")}
+          canComplete={granted.includes("bookings.complete")}
           canManageCompensation={granted.includes("commissions.manage")}
         />
         <section className="bottom-grid">

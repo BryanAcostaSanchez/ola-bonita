@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PaymentSettings } from "./payment-settings";
+import { OnlinePaymentOptions } from "./online-payment-options";
 import { CatalogManager } from "./catalog-manager";
 import { WebAgendaSettings } from "./web-agenda-settings";
 import { CategoryBookingSettings } from "./category-booking-settings";
@@ -133,7 +134,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
     supabase
       .from("business_settings")
       .select(
-        "id, booking_deposit_enabled, booking_deposit_percent, payment_link_expires_minutes, allow_offline_checkout, pos_payment_methods, slot_interval_minutes, web_booking_capacity, default_commission_percent",
+        "id, booking_deposit_enabled, booking_deposit_percent, payment_link_expires_minutes, allow_offline_checkout, pos_payment_methods, slot_interval_minutes, web_booking_capacity, default_commission_percent, no_show_deposit_policy, no_show_reschedule_window_days, online_payment_options",
       )
       .limit(1)
       .maybeSingle(),
@@ -302,7 +303,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
         />
       )}{" "}
       {activeSection === "pagos" && (
-        <PaymentSettings settings={settings} integration={integration} />
+        <><PaymentSettings settings={settings} integration={integration} /><OnlinePaymentOptions settings={settings} /></>
       )}{" "}
       {activeSection === "catalogo" && (
         <CatalogManager

@@ -75,6 +75,7 @@ export function AgendaCalendar({
   specialists,
   specialistHours,
   canAssign,
+  canComplete,
   canManageCompensation,
 }: {
   initialDate: string;
@@ -82,6 +83,7 @@ export function AgendaCalendar({
   specialists: Specialist[];
   specialistHours: SpecialistHour[];
   canAssign: boolean;
+  canComplete: boolean;
   canManageCompensation: boolean;
 }) {
   const [selectedDate, setSelectedDate] = useState(initialDate);
@@ -176,6 +178,42 @@ export function AgendaCalendar({
       setMessage("Cita finalizada y comisión registrada.");
       setSelectedBooking(null);
       window.setTimeout(() => window.location.reload(), 500);
+    }
+  }
+  async function markNoShow() {
+    if (!selectedBooking || selectedBooking.id.startsWith("cabin-")) return;
+    const reason = window.prompt("Motivo o nota interna (opcional):", "");
+    if (reason === null) return;
+    if (!window.confirm("¿Marcar esta cita como “No se presentó”? Se aplicará la política de anticipo configurada.")) return;
+    setSaving(true);
+    const { data, error } = await createClient().rpc("mark_booking_no_show", {
+      p_booking_id: selectedBooking.id,
+      p_reason: reason.trim() || null,
+    });
+    setSaving(false);
+    if (error) setMessage(error.message);
+    else {
+      setMessage(`Cita marcada como no presentada. ${data || ""}`);
+      setSelectedBooking(null);
+      window.setTimeout(() => window.location.reload(), 700);
+    }
+  }
+  async function cancelBooking() {
+    if (!selectedBooking || selectedBooking.id.startsWith("cabin-")) return;
+    const reason = window.prompt("Motivo de la cancelación (opcional):", "");
+    if (reason === null) return;
+    if (!window.confirm("¿Cancelar esta cita? Se aplicará la política de anticipo configurada.")) return;
+    setSaving(true);
+    const { data, error } = await createClient().rpc("cancel_booking", {
+      p_booking_id: selectedBooking.id,
+      p_reason: reason.trim() || null,
+    });
+    setSaving(false);
+    if (error) setMessage(error.message);
+    else {
+      setMessage(`Cita cancelada. ${data || ""}`);
+      setSelectedBooking(null);
+      window.setTimeout(() => window.location.reload(), 700);
     }
   }
   async function adjustCommission() {
@@ -466,9 +504,9 @@ export function AgendaCalendar({
               </select>
             </label>
           )}
-          {canAssign &&
+          {canComplete &&
             !selectedBooking.id.startsWith("cabin-") &&
-            selectedBooking.status !== "completed" && (
+            !["completed", "cancelled", "no_show"].includes(selectedBooking.status) && (
               <button
                 type="button"
                 className="new-booking"
@@ -478,6 +516,8 @@ export function AgendaCalendar({
                 {saving ? "Guardando…" : "Finalizar cita"}
               </button>
             )}
+          {canComplete && !selectedBooking.id.startsWith("cabin-") && !["completed", "cancelled", "no_show"].includes(selectedBooking.status) && <button type="button" className="secondary-button" disabled={saving} onClick={markNoShow}>No se presentó</button>}
+          {canComplete && !selectedBooking.id.startsWith("cabin-") && !["completed", "cancelled", "no_show"].includes(selectedBooking.status) && <button type="button" className="secondary-button" disabled={saving} onClick={cancelBooking}>Cancelar cita</button>}
           {canManageCompensation && !selectedBooking.id.startsWith("cabin-") && !["completed", "cancelled", "no_show"].includes(selectedBooking.status) && <button type="button" className="secondary-button" disabled={saving} onClick={adjustCommission}>Ajustar comisión</button>}
           <button
             type="button"

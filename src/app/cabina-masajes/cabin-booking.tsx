@@ -10,7 +10,7 @@ const tz = "America/Mexico_City";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone:tz, year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
 const keyFor = (date:Date) => new Intl.DateTimeFormat("en-CA", { timeZone:tz, year:"numeric", month:"2-digit", day:"2-digit" }).format(date);
 
-export function CabinBooking({ priceCents, depositEnabled, depositPercent, locale }: { priceCents:number; depositEnabled:boolean; depositPercent:number; locale:Locale }) {
+export function CabinBooking({ priceCents, depositEnabled, depositPercent, paymentOptions, locale }: { priceCents:number; depositEnabled:boolean; depositPercent:number; paymentOptions:("deposit" | "full")[]; locale:Locale }) {
   const t = dictionary[locale].cabin;
   const [date, setDate] = useState("");
   const [month, setMonth] = useState(() => new Date(`${today()}T12:00:00-06:00`));
@@ -19,6 +19,7 @@ export function CabinBooking({ priceCents, depositEnabled, depositPercent, local
   const [form, setForm] = useState({ fullName:"", phone:"", email:"" });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [paymentOption, setPaymentOption] = useState<"deposit" | "full">("deposit");
   const days = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1, 12);
     const last = new Date(month.getFullYear(), month.getMonth() + 1, 0, 12);
@@ -36,7 +37,7 @@ export function CabinBooking({ priceCents, depositEnabled, depositPercent, local
     if (!date) return setMessage(t.selectDateFirst);
     if (!selected || !form.fullName || !form.phone) return setMessage(t.completeFields);
     setBusy(true);
-    const response = await fetch("/api/cabina/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ ...form, startsAt:selected }) });
+    const response = await fetch("/api/cabina/reservations", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ ...form, startsAt:selected, paymentOption:effectivePaymentOption }) });
     const result = await response.json();
     if (response.ok && result.checkout_url) window.location.assign(result.checkout_url);
     else setMessage(response.ok ? t.confirmed(result.reservation.public_code) : result.error);
@@ -44,6 +45,9 @@ export function CabinBooking({ priceCents, depositEnabled, depositPercent, local
   }
 
   const deposit = Math.round(priceCents * depositPercent / 100);
+  const canDeposit = depositEnabled && deposit > 0 && paymentOptions.includes("deposit");
+  const canPayFull = paymentOptions.includes("full");
+  const effectivePaymentOption = canDeposit ? (canPayFull ? paymentOption : "deposit") : "full";
   const monthName = new Intl.DateTimeFormat(intlLocale(locale), { month:"long", year:"numeric" }).format(month);
   return <div className="cabin-booking calendly-booking">
     <div className="booking-step"><span>1</span><div><strong>{t.step1}</strong><small>{t.step1Hint}</small></div></div>
@@ -54,9 +58,10 @@ export function CabinBooking({ priceCents, depositEnabled, depositPercent, local
       <label>{t.fullName}<input placeholder={t.fullNamePlaceholder} value={form.fullName} onChange={(event) => setForm({ ...form, fullName:event.target.value })}/></label>
       <label>{t.phone}<input placeholder={t.phonePlaceholder} value={form.phone} onChange={(event) => setForm({ ...form, phone:event.target.value })}/></label>
       <label>{t.email}<input placeholder={t.emailPlaceholder} value={form.email} onChange={(event) => setForm({ ...form, email:event.target.value })}/></label>
+      <fieldset className="pos-methods"><legend>{locale === "es" ? "¿Cómo deseas pagar?" : "How would you like to pay?"}</legend>{canDeposit && <label><input type="radio" name="cabin-payment" checked={effectivePaymentOption === "deposit"} onChange={() => setPaymentOption("deposit")}/>{locale === "es" ? "Apartado" : "Deposit"} · ${(deposit / 100).toFixed(0)} MXN</label>}{canPayFull && <label><input type="radio" name="cabin-payment" checked={effectivePaymentOption === "full"} onChange={() => setPaymentOption("full")}/>{locale === "es" ? "Pago completo" : "Full payment"} · ${(priceCents / 100).toFixed(0)} MXN</label>}</fieldset>
     </>}
-    {depositEnabled && <p className="deposit-note">{t.depositNote(Math.round(deposit / 100))}</p>}
-    {selected && <button className="button" disabled={busy} onClick={reserve}>{busy ? t.bookingBusy : depositEnabled ? t.continueToPay : t.confirmBooking}</button>}
+    {canDeposit && effectivePaymentOption === "deposit" && <p className="deposit-note">{t.depositNote(Math.round(deposit / 100))}</p>}
+    {selected && <button className="button" disabled={busy} onClick={reserve}>{busy ? t.bookingBusy : t.continueToPay}</button>}
     {message && <p className="access-message">{message}</p>}
   </div>;
 }

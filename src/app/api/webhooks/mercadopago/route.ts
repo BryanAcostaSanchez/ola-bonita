@@ -34,11 +34,11 @@ export async function POST(request: NextRequest) {
     else if (["rejected", "cancelled"].includes(payment.status)) await admin.from("rental_reservations").update({ payment_status: "failed" }).eq("id", reservationId);
     return NextResponse.json({ received: true });
   }
-  const { data: booking } = await admin.from("bookings").select("id").eq("id", payment.external_reference).maybeSingle();
+  const { data: booking } = await admin.from("bookings").select("id, online_payment_kind").eq("id", payment.external_reference).maybeSingle();
   if (!booking) return NextResponse.json({ received: true });
 
   const approved = payment.status === "approved";
   await admin.from("payments").update({ status: approved ? "completed" : payment.status === "rejected" || payment.status === "cancelled" ? "failed" : "pending", provider_reference: String(payment.id) }).eq("booking_id", booking.id).eq("provider", "mercadopago");
-  if (approved) await admin.from("bookings").update({ payment_status: "deposit_paid", status: "confirmed" }).eq("id", booking.id);
+  if (approved) await admin.from("bookings").update({ payment_status: booking.online_payment_kind === "full" ? "paid" : "deposit_paid", status: "confirmed" }).eq("id", booking.id);
   return NextResponse.json({ received: true });
 }
