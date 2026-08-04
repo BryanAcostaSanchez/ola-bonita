@@ -29,25 +29,27 @@ export function SiteFooter({ locale }: { locale: Locale }) {
 
   return (
     <footer className="site-footer">
-      <div className="footer-top">
-        <Link href="/" className="brand brand-logo footer-brand"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={92} height={92} /></Link>
-        <div className="footer-social">
-          {socials.map((social) => (
-            <a key={social.key} href={social.url} target="_blank" rel="noopener noreferrer" aria-label={social.label}>{social.icon}</a>
-          ))}
+      <div className="footer-main">
+        <div className="footer-top">
+          <Link href="/" className="brand brand-logo footer-brand"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={92} height={92} /></Link>
+          <div className="footer-social">
+            {socials.map((social) => (
+              <a key={social.key} href={social.url} target="_blank" rel="noopener noreferrer" aria-label={social.label}>{social.icon}</a>
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="footer-contact">
-        <strong>{t.footer.rights}</strong>
-        <span>{t.visit.address}, {t.visit.city}</span>
-        <span><a href="tel:+529542010059">+52 954 201 0059</a> · <a href={whatsappLink} target="_blank" rel="noopener noreferrer">{t.footer.whatsapp}</a></span>
-        <span>{t.visit.weekdays} {t.visit.weekdaysHours} · {t.visit.weekend} {t.visit.weekendHours}</span>
-      </div>
+        <div className="footer-contact">
+          <strong>{t.footer.rights}</strong>
+          <span>{t.visit.address}, {t.visit.city}</span>
+          <span><a href="tel:+529542010059">+52 954 201 0059</a> · <a href={whatsappLink} target="_blank" rel="noopener noreferrer">{t.footer.whatsapp}</a></span>
+          <span>{t.visit.weekdays} {t.visit.weekdaysHours} · {t.visit.weekend} {t.visit.weekendHours}</span>
+        </div>
 
-      <div className="footer-bottom">
-        <span>{t.footer.rightsLine(new Date().getFullYear())}</span>
-        <Link href="/aviso-de-privacidad">{t.footer.privacy}</Link>
+        <div className="footer-bottom">
+          <span>{t.footer.rightsLine(new Date().getFullYear())}</span>
+          <Link href="/aviso-de-privacidad">{t.footer.privacy}</Link>
+        </div>
       </div>
     </footer>
   );

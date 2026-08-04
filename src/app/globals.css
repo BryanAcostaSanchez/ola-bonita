@@ -19,58 +19,58 @@
   --rose: #c26e86;
   --muted: #8a6b63;
   font-family: "Jost", Arial, Helvetica, sans-serif;
-  padding-top: 38px;
 }
-.announcement-bar {
-  align-items: center;
-  background: #c9a978;
-  display: flex;
-  height: 38px;
-  justify-content: center;
-  left: 0;
+.whatsapp-widget {
+  bottom: 20px;
   position: fixed;
-  right: 0;
-  top: 0;
-  z-index: 200;
-}
-.announcement-bar a {
-  align-items: center;
-  color: #fff;
-  display: flex;
-  font-size: 12.5px;
-  font-weight: 500;
-  gap: 8px;
-  letter-spacing: 0.03em;
-}
-.announcement-bar svg {
-  height: 14px;
-  width: 14px;
-}
-.announcement-bar a:hover {
-  opacity: 0.85;
-}
-@media (max-width: 560px) {
-  .announcement-bar {
-    padding: 0 16px;
-  }
-  .announcement-bar a {
-    font-size: 11.5px;
-  }
+  right: 20px;
+  z-index: 300;
 }
 .whatsapp-fab {
   align-items: center;
   background: #25d366;
   border-radius: 50%;
-  bottom: 20px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
   display: flex;
   height: 56px;
   justify-content: center;
-  position: fixed;
-  right: 20px;
+  position: relative;
   transition: transform 0.2s;
   width: 56px;
   z-index: 300;
+}
+.whatsapp-reserve-message {
+  background: #fff;
+  border-radius: 12px;
+  bottom: 7px;
+  box-shadow: 0 8px 26px rgba(15, 61, 61, 0.18);
+  color: var(--ink-deep);
+  font-size: 13px;
+  font-weight: 600;
+  max-width: min(236px, calc(100vw - 112px));
+  opacity: 0;
+  padding: 11px 14px;
+  pointer-events: none;
+  position: absolute;
+  right: 68px;
+  transform: translateX(12px) scale(0.96);
+  transform-origin: right bottom;
+  transition: opacity 0.28s ease, transform 0.28s ease, visibility 0.28s;
+  visibility: hidden;
+  white-space: nowrap;
+}
+.whatsapp-reserve-message::after {
+  border: 8px solid transparent;
+  border-left-color: #fff;
+  bottom: 14px;
+  content: "";
+  position: absolute;
+  right: -15px;
+}
+.whatsapp-reserve-message.is-visible {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  visibility: visible;
 }
 .whatsapp-fab:hover {
   transform: scale(1.06);
@@ -139,6 +139,10 @@
   }
 }
 @media (max-width: 560px) {
+  .whatsapp-widget {
+    bottom: 16px;
+    right: 16px;
+  }
   .whatsapp-fab {
     bottom: 16px;
     height: 52px;
@@ -1998,6 +2002,9 @@ footer > a {
     font-weight: 400;
   }
   .whatsapp-fab {
+    bottom: auto;
+  }
+  .whatsapp-widget {
     bottom: 86px;
   }
   .back-to-top {
@@ -6819,27 +6826,32 @@ footer > a {
 .site-footer {
   background: #fdf6ee;
   border-top: 1px solid var(--sand);
-  padding: 70px 42px 34px;
+  padding: 44px 42px;
+}
+.footer-main {
+  align-items: center;
+  display: grid;
+  gap: 48px;
+  grid-template-columns: minmax(230px, 1fr) minmax(400px, 1.55fr) minmax(230px, 1fr);
+  margin: auto;
+  max-width: 1280px;
 }
 .footer-top {
   align-items: center;
   display: flex;
-  justify-content: center;
-  margin: 0 auto 30px;
-  max-width: 1280px;
-  position: relative;
+  gap: 18px;
+  justify-content: flex-start;
 }
 .footer-brand img {
   border-radius: 50%;
   box-shadow: 0 6px 16px rgba(24, 57, 58, 0.14);
+  display: block;
+  height: 70px;
+  width: 70px;
 }
 .footer-social {
   display: flex;
   gap: 10px;
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
 }
 .footer-social a {
   align-items: center;
@@ -6883,8 +6895,6 @@ footer > a {
   display: grid;
   font-size: 12px;
   gap: 7px;
-  margin: 0 auto 36px;
-  max-width: 1280px;
   text-align: center;
 }
 .footer-contact strong {
@@ -6901,14 +6911,14 @@ footer > a {
 }
 .footer-bottom {
   align-items: center;
-  border-top: 1px solid var(--sand);
+  border-left: 1px solid var(--sand);
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
+  flex-direction: column;
+  gap: 10px;
   justify-content: center;
-  margin: auto;
-  max-width: 1280px;
-  padding-top: 24px;
+  min-height: 70px;
+  padding-left: 32px;
+  text-align: center;
 }
 .footer-bottom span {
   color: #a8877e;
@@ -6923,6 +6933,11 @@ footer > a {
   .site-footer {
     padding: 50px 24px 28px;
   }
+  .footer-main {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
   .footer-top {
     flex-direction: column;
     gap: 20px;
@@ -6936,10 +6951,14 @@ footer > a {
     margin-bottom: 30px;
   }
   .footer-contact {
-    margin-bottom: 30px;
+    margin: 0;
   }
   .footer-bottom {
+    border-left: 0;
+    border-top: 1px solid var(--sand);
     flex-direction: column;
+    min-height: 0;
+    padding: 24px 0 0;
     text-align: center;
   }
 }

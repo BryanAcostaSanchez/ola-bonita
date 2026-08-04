@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { WhatsappFab } from "@/components/WhatsappFab";
 import { getLocale } from "@/lib/i18n/server";
@@ -13,7 +12,6 @@ export default async function PrivacyPage() {
 
   return (
     <main className="booking-page public-site">
-      <AnnouncementBar locale={locale} />
       <header className="booking-header">
         <Link href="/" className="brand brand-logo"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={80} height={80} priority /></Link>
         <Link className="text-link" href="/">← {t.privacy.backHome}</Link>

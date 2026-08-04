@@ -3,7 +3,6 @@ import path from "node:path";
 import Link from "next/link";
 import Image from "next/image";
 import { createServerClient } from "@/lib/supabase/server";
-import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { WhatsappFab } from "@/components/WhatsappFab";
 import { SiteNav } from "@/components/SiteNav";
 import { TestimonialCarousel } from "@/components/TestimonialCarousel";
@@ -43,7 +42,6 @@ export default async function Home() {
 
   return (
     <main className="public-site">
-      <AnnouncementBar locale={locale} />
       <SiteNav locale={locale} />
 
       <section className="hero">

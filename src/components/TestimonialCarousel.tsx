@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n/locale";
 import { dictionary } from "@/lib/i18n/dictionary";
 
@@ -12,6 +12,14 @@ export function TestimonialCarousel({ locale }: { locale: Locale }) {
   const total = t.items.length;
   const current = t.items[index];
   const go = (delta: number) => setIndex((value) => (value + delta + total) % total);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setIndex((value) => (value + 1) % total);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [total]);
 
   return (
     <div className="quote-card">
