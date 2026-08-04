@@ -25,12 +25,11 @@ export default async function BookingPage({ searchParams }: { searchParams: Prom
   return (
     <main className="booking-page public-site">
       <AnnouncementBar locale={locale} />
-      <header className="booking-header"><Link href="/" className="brand brand-logo"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={80} height={80} priority /></Link><Link className="text-link" href="/">← {t.booking.backToSite}</Link></header>
+      <header className="booking-header"><Link href="/" className="brand brand-logo"><Image src="/brand/ola-bonita.png" alt="Ola Bonita Beauty Spa" width={80} height={80} priority /></Link><div className="booking-header-actions"><LanguageSwitcher locale={locale} /><Link className="text-link" href="/">← {t.booking.backToSite}</Link></div></header>
       <section className="booking-layout">
         <div className="booking-intro"><p className="eyebrow">{t.booking.eyebrow}</p><h1>{t.booking.titlePrefix}<br />{t.booking.titleMiddle} <em>{t.booking.titleEm}</em></h1><p>{t.booking.intro}</p><div className="booking-note"><strong>{t.booking.depositTitle}</strong><span>{t.booking.depositText}</span></div></div>
         <BookingServicePicker services={services ?? []} settings={bookingSettings?.[0] ?? null} locale={locale} preselectedServiceId={service} preselectedCategory={category} />
       </section>
-      <LanguageSwitcher locale={locale} />
       <WhatsappFab locale={locale} />
     </main>
   );

@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type Mode = "sign-in" | "sign-up" | "activate";
+const invalidInvitationMessage = "Este enlace de invitación ya no es válido. Pide a administración que te envíe uno nuevo.";
+const isInvalidInvitationError = (error: { message?: string } | null) => Boolean(error?.message?.toLowerCase().includes("user from sub claim"));
 
 export function AccessForm({ canCreateFirstOwner }: { canCreateFirstOwner: boolean }) {
   const [mode, setMode] = useState<Mode>(canCreateFirstOwner ? "sign-up" : "sign-in");
@@ -19,12 +21,27 @@ export function AccessForm({ canCreateFirstOwner }: { canCreateFirstOwner: boole
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const flow = query.get("flow") || hash.get("type");
     if (flow !== "invite" && flow !== "recovery") return;
+    if (query.get("error") === "expired-link") {
+      queueMicrotask(() => setMessage(invalidInvitationMessage));
+      return;
+    }
 
     const supabase = createClient();
     const prepareActivation = async () => {
+      const accessToken = hash.get("access_token");
+      const refreshToken = hash.get("refresh_token");
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        if (error) {
+          await supabase.auth.signOut({ scope: "local" });
+          setMessage(isInvalidInvitationError(error) ? invalidInvitationMessage : "No pudimos validar este enlace. Pide a administración que te envíe uno nuevo.");
+          return;
+        }
+        window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}`);
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage("Estamos validando tu enlace seguro. Si ya expiró, pide a administración un enlace nuevo.");
+        setMessage(invalidInvitationMessage);
         return;
       }
       setEmail(session.user.email || "");
@@ -58,7 +75,13 @@ export function AccessForm({ canCreateFirstOwner }: { canCreateFirstOwner: boole
       else window.location.assign("/app");
     } else if (mode === "activate") {
       const { error } = await supabase.auth.updateUser({ password });
-      if (error) setMessage(error.message);
+      if (error) {
+        if (isInvalidInvitationError(error)) {
+          await supabase.auth.signOut({ scope: "local" });
+          setMode("sign-in");
+          setMessage(invalidInvitationMessage);
+        } else setMessage(error.message);
+      }
       else window.location.assign("/app");
     } else {
       const { data, error } = await supabase.auth.signUp({

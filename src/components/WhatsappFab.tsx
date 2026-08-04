@@ -1,14 +1,13 @@
 import type { Locale } from "@/lib/i18n/locale";
 import { dictionary } from "@/lib/i18n/dictionary";
-
-const WHATSAPP_NUMBER = "529542010059";
+import { getWhatsappLink } from "@/lib/social";
 
 export function WhatsappFab({ locale }: { locale: Locale }) {
   const t = dictionary[locale];
   return (
     <a
       className="whatsapp-fab"
-      href={`https://wa.me/${WHATSAPP_NUMBER}`}
+      href={getWhatsappLink(locale)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label={t.whatsappFab.tooltip}

@@ -45,13 +45,14 @@ export default async function AppDashboard() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/app/acceso");
 
-  const [{ data: profile }, { data: ownerExists }] = await Promise.all([
+  const [{ data: profile }, { data: ownerExists }, { data: permissions }] = await Promise.all([
     supabase
       .from("profiles")
       .select("full_name, role, active")
       .eq("id", user.id)
       .maybeSingle(),
     supabase.rpc("has_bootstrapped_owner"),
+    supabase.rpc("my_permissions"),
   ]);
   if (!ownerExists)
     return (
@@ -186,7 +187,8 @@ export default async function AppDashboard() {
     : specialists?.length
       ? "El equipo está agregado; asigna servicios y horario para abrir la agenda web."
       : "Agrega especialistas para abrir espacios de reserva.";
-  const canManageCabin = ["owner", "manager"].includes(profile.role);
+  const granted: string[] = Array.isArray(permissions) ? permissions : [];
+  const canManageCabin = granted.includes("settings.cabin");
   const cabinAgenda = (cabinReservations ?? []).map((reservation) => ({
     id: `cabin-${reservation.id}`,
     starts_at: reservation.starts_at,
@@ -288,8 +290,8 @@ export default async function AppDashboard() {
           bookings={[...(weekBookings ?? []), ...cabinAgenda]}
           specialists={agendaSpecialists}
           specialistHours={weeklySpecialistHours ?? []}
-          canAssign={["owner", "manager", "reception"].includes(profile.role)}
-          canManageCompensation={profile.role === "owner"}
+          canAssign={granted.includes("bookings.assign")}
+          canManageCompensation={granted.includes("commissions.manage")}
         />
         <section className="bottom-grid">
           <article className="today-card">

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
+import { defaultPermissionsByRole, isPermission, type Permission } from "@/lib/permissions";
 
 const roles = ["manager", "reception", "specialist"] as const;
 type StaffRole = (typeof roles)[number];
@@ -13,12 +14,16 @@ export async function POST(request: Request) {
   const { data: caller } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
   if (caller?.role !== "owner") return NextResponse.json({ error: "Solo la administración puede invitar al equipo." }, { status: 403 });
 
-  const body = await request.json().catch(() => null) as { fullName?: string; email?: string; role?: StaffRole } | null;
+  const body = await request.json().catch(() => null) as { fullName?: string; email?: string; role?: StaffRole; permissions?: unknown } | null;
   const fullName = body?.fullName?.trim();
   const email = body?.email?.trim().toLowerCase();
   if (!fullName || !email || !body?.role || !roles.includes(body.role)) {
     return NextResponse.json({ error: "Nombre, correo y rol son obligatorios." }, { status: 422 });
   }
+  if (body.permissions !== undefined && (!Array.isArray(body.permissions) || !body.permissions.every(isPermission))) {
+    return NextResponse.json({ error: "Los permisos seleccionados no son válidos." }, { status: 422 });
+  }
+  const permissions = body.permissions === undefined ? defaultPermissionsByRole[body.role] : [...new Set(body.permissions)] as Permission[];
 
   try {
     const admin = createAdminClient();
@@ -35,7 +40,7 @@ export async function POST(request: Request) {
     });
     if (inviteError) return NextResponse.json({ error: inviteError.message }, { status: 422 });
 
-    const { error: profileError } = await admin.from("profiles").update({ full_name: fullName, role: body.role, active: true }).eq("id", data.user.id);
+    const { error: profileError } = await admin.from("profiles").update({ full_name: fullName, role: body.role, active: true, permission_overrides: permissions }).eq("id", data.user.id);
     if (profileError) throw profileError;
     return NextResponse.json({ id: data.user.id });
   } catch (error) {

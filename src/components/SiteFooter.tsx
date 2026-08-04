@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Locale } from "@/lib/i18n/locale";
 import { dictionary } from "@/lib/i18n/dictionary";
-import { SOCIAL_LINKS } from "@/lib/social";
+import { getWhatsappLink, SOCIAL_LINKS } from "@/lib/social";
 
 function InstagramIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4.2" /><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" /></svg>;
@@ -19,20 +19,12 @@ function WhatsappIcon() {
 
 export function SiteFooter({ locale }: { locale: Locale }) {
   const t = dictionary[locale];
-  const links = [
-    { href: "/", label: t.footer.home },
-    { href: "/#servicios", label: t.nav.services },
-    { href: "/#metodo", label: t.nav.method },
-    { href: "/#resenas", label: t.nav.reviews },
-    { href: "/#journal", label: t.nav.journal },
-    { href: "/#visitanos", label: t.nav.visit },
-    { href: "/reservar", label: t.footer.cta },
-  ];
+  const whatsappLink = getWhatsappLink(locale);
   const socials = [
     { key: "instagram", label: "Instagram", url: SOCIAL_LINKS.instagram, icon: <InstagramIcon /> },
     { key: "facebook", label: "Facebook", url: SOCIAL_LINKS.facebook, icon: <FacebookIcon /> },
     { key: "tiktok", label: "TikTok", url: SOCIAL_LINKS.tiktok, icon: <TiktokIcon /> },
-    { key: "whatsapp", label: t.footer.whatsapp, url: SOCIAL_LINKS.whatsapp, icon: <WhatsappIcon /> },
+    { key: "whatsapp", label: t.footer.whatsapp, url: whatsappLink, icon: <WhatsappIcon /> },
   ];
 
   return (
@@ -46,12 +38,10 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         </div>
       </div>
 
-      <nav className="footer-nav">{links.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}</nav>
-
       <div className="footer-contact">
         <strong>{t.footer.rights}</strong>
         <span>{t.visit.address}, {t.visit.city}</span>
-        <span><a href="tel:+529542010059">+52 954 201 0059</a> · <a href={SOCIAL_LINKS.whatsapp} target="_blank" rel="noopener noreferrer">{t.footer.whatsapp}</a></span>
+        <span><a href="tel:+529542010059">+52 954 201 0059</a> · <a href={whatsappLink} target="_blank" rel="noopener noreferrer">{t.footer.whatsapp}</a></span>
         <span>{t.visit.weekdays} {t.visit.weekdaysHours} · {t.visit.weekend} {t.visit.weekendHours}</span>
       </div>
 

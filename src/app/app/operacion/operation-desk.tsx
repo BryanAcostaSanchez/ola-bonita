@@ -8,6 +8,8 @@ type Category = { id: string; name: string };
 type Service = { id: string; name: string; price_cents: number; category: Category | Category[] | null };
 type CashSession = { id: string; opening_float_cents: number; opened_at: string } | null;
 type FinanceOption = { id:string; name:string; color:string };
+type Specialist = { id:string; full_name:string };
+type CustomService = { id:string; description:string; amount:string; note:string; commission:string; specialistId:string };
 type Customer = { id:string; full_name:string; phone:string|null; email:string|null };
 type Method = "cash" | "card" | "transfer";
 
@@ -61,8 +63,6 @@ function SwipeCartLine({ service, quantity, onAdd, onRemove }: { service: Servic
 
   return (
     <div className="cart-swipe-shell">
-      <span className="cart-swipe-action cart-swipe-add" aria-hidden="true">+1</span>
-      <span className="cart-swipe-action cart-swipe-remove" aria-hidden="true">−1</span>
       <div
         className="cart-line cart-line-swipe"
         title="Desliza a la derecha para sumar o a la izquierda para restar"
@@ -89,10 +89,13 @@ function SwipeCartLine({ service, quantity, onAdd, onRemove }: { service: Servic
   );
 }
 
-export function OperationDesk({ services, cashSession, staffName, expenseCategories, expenseTags }: { services: Service[]; cashSession: CashSession; staffName: string; expenseCategories:FinanceOption[]; expenseTags:FinanceOption[] }) {
+export function OperationDesk({ services, specialists, cashSession, staffName, expenseCategories, expenseTags }: { services: Service[]; specialists: Specialist[]; cashSession: CashSession; staffName: string; expenseCategories:FinanceOption[]; expenseTags:FinanceOption[] }) {
   const supabase = useMemo(() => createClient(), []);
   const [initialDraft] = useState(readPosDraft);
   const [cart, setCart] = useState<Record<string, number>>(()=>initialDraft.cart ?? {});
+  const [customServices, setCustomServices] = useState<CustomService[]>([]);
+  const [customDraft, setCustomDraft] = useState<Omit<CustomService, "id">>({ description: "Servicio personalizado", amount: "", note: "", commission: "", specialistId: "" });
+  const [saleNote, setSaleNote] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(()=>initialDraft.selectedCategoryId ?? null);
   const [method, setMethod] = useState<Method>(()=>initialDraft.method ?? "cash");
   const [splitPayment, setSplitPayment] = useState(()=>initialDraft.splitPayment ?? false);
@@ -131,14 +134,21 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
   }, [services]);
   const selectedCategory = categories.find((category) => category.id === selectedCategoryId);
   const visibleServices = selectedCategoryId ? services.filter((service) => (categoryOf(service)?.id || "other") === selectedCategoryId) : [];
-  const total = useMemo(
-    () => services.reduce((sum, service) => sum + (cart[service.id] ?? 0) * service.price_cents, 0),
-    [cart, services],
-  );
-  const itemCount = useMemo(() => Object.values(cart).reduce((sum, amount) => sum + amount, 0), [cart]);
+  const cents = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
+  const total = useMemo(() => services.reduce((sum, service) => sum + (cart[service.id] ?? 0) * service.price_cents, 0) + customServices.reduce((sum, service) => sum + Math.max(0, cents(service.amount || "0")), 0), [cart, services, customServices]);
+  const itemCount = useMemo(() => Object.values(cart).reduce((sum, amount) => sum + amount, 0) + customServices.length, [cart, customServices]);
   const add = (id: string) => setCart((current) => ({ ...current, [id]: (current[id] ?? 0) + 1 }));
   const remove = (id: string) => setCart((current) => ({ ...current, [id]: Math.max(0, (current[id] ?? 0) - 1) }));
-  const cents = (value: string) => Math.round(Number(value.replace(",", ".")) * 100);
+  const addCustomService = () => {
+    const amount = cents(customDraft.amount || "0");
+    const commission = cents(customDraft.commission || "0");
+    if (!customDraft.description.trim() || !Number.isFinite(amount) || amount <= 0) return setNotice("Agrega el nombre y un importe válido para el servicio personalizado.");
+    if (!Number.isFinite(commission) || commission < 0) return setNotice("La comisión debe ser un importe válido.");
+    if (commission > 0 && !customDraft.specialistId) return setNotice("Selecciona a quién se pagó la comisión.");
+    setCustomServices((current) => [...current, { ...customDraft, id: crypto.randomUUID() }]);
+    setCustomDraft({ description: "Servicio personalizado", amount: "", note: "", commission: "", specialistId: "" });
+    setNotice(null);
+  };
   const firstSplitCents = Math.max(0, cents(firstSplitAmount || "0"));
   const remainingSplitCents = Math.max(0, total - firstSplitCents);
   const splitIsValid = firstSplitCents > 0 && remainingSplitCents > 0;
@@ -158,9 +168,10 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
     run(
       () =>
         supabase.rpc("record_pos_sale", {
-          p_items: services
-            .filter((service) => qty(service.id))
-            .map((service) => ({ service_id: service.id, quantity: qty(service.id) })),
+          p_items: [
+            ...services.filter((service) => qty(service.id)).map((service) => ({ service_id: service.id, quantity: qty(service.id), sale_note: saleNote.trim() || null })),
+            ...customServices.map((service) => ({ description: service.description.trim(), quantity: 1, unit_price_cents: cents(service.amount), commission_cents: cents(service.commission || "0"), specialist_id: service.specialistId || null, note: service.note.trim() || null, sale_note: saleNote.trim() || null })),
+          ],
           p_payment_method: splitPayment ? firstSplitMethod : method,
           p_customer_name: customerName || null,
           p_customer_phone: customerPhone || null,
@@ -218,16 +229,18 @@ export function OperationDesk({ services, cashSession, staffName, expenseCategor
         <div className="operations-grid touch-pos-grid">
           <section className="operation-card pos-catalog">
             <div className="section-top"><div><h2>{selectedCategory ? selectedCategory.name : "Nueva venta"}</h2><p>{selectedCategory ? "Toca un servicio para agregarlo al ticket." : "Primero selecciona una categoría."}</p></div><span className="touch-hint">◉ Modo táctil</span></div>
-            {selectedCategory ? <><button type="button" className="back-to-categories" onClick={() => setSelectedCategoryId(null)}>← Ver categorías</button><div className="pos-services">{visibleServices.map((service) => <button type="button" key={service.id} onClick={() => add(service.id)} aria-label={`Agregar ${service.name}`}><span>{service.name}</span><strong>{money.format(service.price_cents / 100)}</strong><small>{qty(service.id) ? `${qty(service.id)} en ticket` : "Tocar para agregar"}</small></button>)}</div></> : <div className="pos-categories">{categories.map((category) => <button type="button" key={category.id} onClick={() => setSelectedCategoryId(category.id)}><span>{category.name}</span><small>{category.count} {category.count === 1 ? "servicio" : "servicios"}</small><b>Ver servicios →</b></button>)}</div>}
+            {selectedCategory === undefined && selectedCategoryId === "custom" ? <><button type="button" className="back-to-categories" onClick={() => setSelectedCategoryId(null)}>← Ver categorías</button><div className="operation-inputs"><input value={customDraft.description} onChange={(event)=>setCustomDraft({ ...customDraft, description:event.target.value })} placeholder="Nombre del servicio"/><input value={customDraft.amount} onChange={(event)=>setCustomDraft({ ...customDraft, amount:event.target.value })} inputMode="decimal" placeholder="Importe a cobrar"/><input value={customDraft.note} onChange={(event)=>setCustomDraft({ ...customDraft, note:event.target.value })} placeholder="Nota de venta (opcional)"/><input value={customDraft.commission} onChange={(event)=>setCustomDraft({ ...customDraft, commission:event.target.value })} inputMode="decimal" placeholder="Comisión pagada (opcional)"/>{cents(customDraft.commission || "0") > 0 && <select value={customDraft.specialistId} onChange={(event)=>setCustomDraft({ ...customDraft, specialistId:event.target.value })}><option value="">Selecciona especialista</option>{specialists.map((specialist)=><option value={specialist.id} key={specialist.id}>{specialist.full_name}</option>)}</select>}<button type="button" className="secondary-operation" onClick={addCustomService}>Agregar al ticket</button></div></> : selectedCategory ? <><button type="button" className="back-to-categories" onClick={() => setSelectedCategoryId(null)}>← Ver categorías</button><div className="pos-services">{visibleServices.map((service) => <button type="button" key={service.id} onClick={() => add(service.id)} aria-label={`Agregar ${service.name}`}><span>{service.name}</span><strong>{money.format(service.price_cents / 100)}</strong><small>{qty(service.id) ? `${qty(service.id)} en ticket` : "Tocar para agregar"}</small></button>)}</div></> : <div className="pos-categories">{categories.map((category) => <button type="button" key={category.id} onClick={() => setSelectedCategoryId(category.id)}><span>{category.name}</span><small>{category.count} {category.count === 1 ? "servicio" : "servicios"}</small><b>Ver servicios →</b></button>)}<button type="button" onClick={() => setSelectedCategoryId("custom")}><span>Servicio personalizado</span><small>Monto, nota y comisión manual</small><b>Agregar →</b></button></div>}
           </section>
           <section className="operation-card pos-ticket">
             <div className="section-top"><div><h2>Ticket actual</h2><p>{itemCount ? `${itemCount} ${itemCount === 1 ? "servicio" : "servicios"}` : "Aún no agregas servicios"}</p></div><strong className="ticket-total">{money.format(total / 100)}</strong></div>
             <div className="cart-lines">
               {services.filter((service) => qty(service.id)).map((service) => <SwipeCartLine key={service.id} service={service} quantity={qty(service.id)} onAdd={() => add(service.id)} onRemove={() => remove(service.id)} />)}
+              {customServices.map((service) => <div className="cart-line" key={service.id}><div><strong>{service.description}</strong><small>{service.note || "Servicio personalizado"}{service.commission ? ` · Comisión ${money.format(cents(service.commission) / 100)}` : ""}</small></div><div className="cart-adjust"><strong>{money.format(cents(service.amount) / 100)}</strong><button type="button" aria-label={`Quitar ${service.description}`} onClick={()=>setCustomServices((current)=>current.filter((item)=>item.id !== service.id))}>×</button></div></div>)}
               {!itemCount && <p className="empty-ticket">Selecciona los servicios del panel izquierdo.</p>}
             </div>
             {!!itemCount && <p className="cart-swipe-hint">Desliza un servicio: derecha suma · izquierda resta.</p>}
             <div className="pos-customer"><div className="section-top"><div><h3>Cliente</h3><p>{customerName ? "Cliente asociado al ticket" : "Opcional: busca antes de cobrar"}</p></div>{customerName && <button type="button" className="add-customer" onClick={()=>{setCustomerName("");setCustomerPhone("");setCustomerSearch("");setShowClientForm(false);}}>Quitar</button>}</div>{!customerName && <><div className="customer-search-wrap"><input className="customer-search" value={customerSearch} onChange={(event)=>{setCustomerSearch(event.target.value);setShowClientForm(false);}} placeholder="Buscar por nombre, teléfono o correo"/><button type="button" className="customer-quick-add" aria-label="Agregar cliente nuevo" onClick={()=>{setClientDraft((draft)=>({...draft,fullName:customerSearch || draft.fullName}));setCustomerResults([]);setShowClientForm(true);}}>+ Cliente</button></div>{searchingCustomer && <small className="customer-search-note">Buscando…</small>}{customerResults.length > 0 && <div className="customer-results">{customerResults.map((customer)=><button type="button" key={customer.id} onClick={()=>{setCustomerName(customer.full_name);setCustomerPhone(customer.phone ?? "");setCustomerSearch("");setCustomerResults([]);}}><strong>{customer.full_name}</strong><small>{customer.phone || customer.email || "Sin contacto"}</small></button>)}</div>}{searchedCustomer && !searchingCustomer && customerResults.length === 0 && <div className="customer-empty"><span>No encontramos a “{customerSearch}”.</span><button type="button" className="add-customer" onClick={()=>{setClientDraft((draft)=>({...draft,fullName:customerSearch}));setShowClientForm(true);}}>+ Agregar cliente</button></div>}{showClientForm && <div className="customer-form"><input value={clientDraft.fullName} onChange={(event) => setClientDraft({ ...clientDraft, fullName: event.target.value })} placeholder="Nombre completo *" /><input value={clientDraft.phone} onChange={(event) => setClientDraft({ ...clientDraft, phone: event.target.value })} inputMode="tel" placeholder="Teléfono *" /><input value={clientDraft.email} onChange={(event) => setClientDraft({ ...clientDraft, email: event.target.value })} inputMode="email" placeholder="Correo (opcional)" /><input value={clientDraft.notes} onChange={(event) => setClientDraft({ ...clientDraft, notes: event.target.value })} placeholder="Notas (opcional)" /><button type="button" className="secondary-operation" disabled={busy} onClick={saveCustomer}>Guardar cliente</button></div>}</>}</div>
+            <input value={saleNote} onChange={(event)=>setSaleNote(event.target.value)} placeholder="Nota de venta (opcional)" />
             <div className="payment-heading"><p className="payment-label">¿Cómo pagó?</p><button type="button" className={splitPayment ? "split-toggle active" : "split-toggle"} onClick={()=>{setSplitPayment((current)=>!current);setFirstSplitAmount("");}}>Pago dividido</button></div>
             {!splitPayment ? <Methods value={method} change={setMethod} /> : <div className="split-payment"><div><select value={firstSplitMethod} onChange={(event)=>setFirstSplitMethod(event.target.value as Method)}><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><input inputMode="decimal" value={firstSplitAmount} onChange={(event)=>setFirstSplitAmount(event.target.value)} placeholder="Importe"/></div><div><select value={secondSplitMethod} onChange={(event)=>setSecondSplitMethod(event.target.value as Method)}><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option></select><output>Resto: {money.format(remainingSplitCents / 100)}</output></div><small>Ingresa la primera parte; el resto se calcula automáticamente.</small></div>}
             <button type="button" className="primary-operation" disabled={!total || busy || (splitPayment && !splitIsValid)} onClick={checkout}>Cobrar {money.format(total / 100)}</button>

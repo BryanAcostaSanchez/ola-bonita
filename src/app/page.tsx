@@ -5,7 +5,6 @@ import Image from "next/image";
 import { createServerClient } from "@/lib/supabase/server";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { WhatsappFab } from "@/components/WhatsappFab";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SiteNav } from "@/components/SiteNav";
 import { TestimonialCarousel } from "@/components/TestimonialCarousel";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -54,7 +53,16 @@ export default async function Home() {
           <p className="eyebrow">{t.hero.eyebrow}</p>
           <h1>{t.hero.titleLine1}<br /><em>{t.hero.titleEm}</em></h1>
           <p className="hero-text">{t.hero.text}</p>
-          <div className="hero-cta"><Link className="button" href="/reservar">{t.hero.cta} <span>→</span></Link><a className="text-link" href="#servicios">{t.hero.exploreLink}</a></div>
+          <div className="hero-cta">
+            <Link className="hero-book-button" href="/reservar">
+              <span>{t.hero.cta}</span>
+              <b aria-hidden="true">→</b>
+            </Link>
+            <a className="hero-explore-button" href="#servicios">
+              <span>{t.hero.exploreLink}</span>
+              <b aria-hidden="true">↓</b>
+            </a>
+          </div>
           <a className="hero-rating" href="#resenas"><span className="hero-rating-stars" aria-hidden="true">★★★★★</span><span>{t.hero.ratingText}</span></a>
         </div>
       </section>
@@ -66,7 +74,7 @@ export default async function Home() {
           const cheapest = bookableServices.length ? Math.min(...bookableServices.map((service) => service.price_cents)) : null;
           const image = getServiceImage(category.slug);
           return (
-            <article className="service-card" key={category.slug}>
+            <Link aria-label={`${t.services.cta}: ${category.name}`} className="service-card" href={`/reservar?category=${encodeURIComponent(category.name)}`} key={category.slug}>
               <div className="service-card-media">
                 {image ? (
                   <Image src={image} alt={category.name} fill sizes="(max-width:620px) 100vw, (max-width:1024px) 50vw, 33vw" className="service-card-image" />
@@ -78,26 +86,10 @@ export default async function Home() {
               <h3>{category.name}</h3>
               <p>{t.descriptions[category.slug] ?? t.services.fallbackDescription}</p>
               {cheapest !== null && <p className="service-price-from">{t.services.from} <strong>{money.format(cheapest / 100)}</strong></p>}
-              <Link href={`/reservar?category=${encodeURIComponent(category.name)}`}>{t.services.cta} <span aria-hidden="true">→</span></Link>
-            </article>
+              <span className="service-card-cta">{t.services.cta} <b aria-hidden="true">→</b></span>
+            </Link>
           );
         })}</div>
-      </section>
-
-      <section id="metodo" className="method">
-        <div className="method-grid">
-          <div className="method-art" aria-hidden="true">
-            <svg className="wave-line wave-line-top" viewBox="0 0 200 40" fill="none"><path d="M0 20 Q 25 2 50 20 T 100 20 T 150 20 T 200 20" stroke="currentColor" strokeWidth="1.5" /></svg>
-            <div className="method-glow"></div>
-            <p><em>{t.method.artQuote}</em><span>{t.method.artText}</span></p>
-          </div>
-          <div className="method-copy">
-            <p className="eyebrow">{t.method.eyebrow}</p>
-            <h2>{t.method.titleLine1}<br /><em>{t.method.titleEm}</em></h2>
-            <p>{t.method.text}</p>
-            <ol>{t.method.steps.map((step, index) => <li key={step}><b>0{index + 1}</b>{step}</li>)}</ol>
-          </div>
-        </div>
       </section>
 
       <section id="resenas" className="reviews-carousel section-shell">
@@ -118,8 +110,6 @@ export default async function Home() {
         ))}</div>
       </section>
 
-      <section id="visitanos" className="visit section-shell"><div><p className="eyebrow">{t.visit.eyebrow}</p><h2>{t.visit.titleLine1}<br />{t.visit.titleLine2}</h2><p>{t.visit.address}<br />{t.visit.city}</p><a className="text-link" href="tel:+529542010059">+52 954 201 0059</a></div><div className="hours"><h3>{t.visit.hoursTitle}</h3><p><span>{t.visit.weekdays}</span><strong>{t.visit.weekdaysHours}</strong></p><p><span>{t.visit.weekend}</span><strong>{t.visit.weekendHours}</strong></p><small>{t.visit.note}</small></div></section>
-
       <section className="map-section">
         <iframe
           src={`https://www.google.com/maps?q=${encodeURIComponent("Ola Bonita Beauty Spa Massage, Guanajuato 655, Brisas de Zicatela, 70934 Puerto Escondido, Oaxaca, México")}&output=embed`}
@@ -138,9 +128,11 @@ export default async function Home() {
       </section>
 
       <SiteFooter locale={locale} />
-      <LanguageSwitcher locale={locale} />
       <WhatsappFab locale={locale} />
       <BackToTop locale={locale} />
+      <Link className="mobile-reserve-bar" href="/reservar">
+        <span>{t.nav.reserve}</span><b aria-hidden="true">→</b>
+      </Link>
     </main>
   );
 }

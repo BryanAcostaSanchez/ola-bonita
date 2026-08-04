@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { defaultPermissionsByRole, PERMISSION_GROUPS, type Permission } from "@/lib/permissions";
 
 type Role = "owner" | "manager" | "reception" | "specialist";
 type Member = {
@@ -125,6 +126,9 @@ export function TeamManager({
     email: "",
     role: "specialist" as Exclude<Role, "owner">,
   });
+  const [invitePermissions, setInvitePermissions] = useState<Permission[]>(
+    defaultPermissionsByRole.specialist,
+  );
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const specialists = members.filter(
@@ -174,22 +178,30 @@ export function TeamManager({
     event.preventDefault();
     setBusy(true);
     setMessage("");
-    const response = await fetch("/api/staff/invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(invite),
-    });
-    const result = (await response.json()) as { id?: string; error?: string };
-    if (!response.ok)
-      setMessage(result.error || "No pudimos enviar la invitación.");
-    else {
-      setMessage(
-        "Invitación enviada. La persona recibirá un correo para crear su acceso.",
-      );
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
+    try {
+      const response = await fetch("/api/staff/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...invite, permissions: invitePermissions }),
+        signal: controller.signal,
+      });
+      const result = await response.json().catch(() => ({})) as { id?: string; error?: string };
+      if (!response.ok) {
+        setMessage(result.error || "No pudimos enviar la invitación. Intenta de nuevo.");
+        return;
+      }
+      const invitedId = result.id;
+      if (!invitedId) {
+        setMessage("No recibimos confirmación de la invitación. Verifica el equipo antes de volver a intentarlo.");
+        return;
+      }
+      setMessage("Invitación enviada. La persona recibirá un correo para crear su acceso.");
       setMembers((current) => [
         ...current,
         {
-          id: result.id!,
+          id: invitedId,
           full_name: invite.fullName,
           email: invite.email,
           role: invite.role,
@@ -198,8 +210,13 @@ export function TeamManager({
         },
       ]);
       setInvite({ fullName: "", email: "", role: "specialist" });
+      setInvitePermissions(defaultPermissionsByRole.specialist);
+    } catch (error) {
+      setMessage(error instanceof DOMException && error.name === "AbortError" ? "La invitación tardó demasiado. Verifica la conexión e intenta de nuevo." : "No pudimos comunicarnos para enviar la invitación. Intenta de nuevo.");
+    } finally {
+      window.clearTimeout(timeout);
+      setBusy(false);
     }
-    setBusy(false);
   }
 
   async function saveAvailability() {
@@ -348,12 +365,14 @@ export function TeamManager({
           />
           <select
             value={invite.role}
-            onChange={(event) =>
+            onChange={(event) => {
+              const role = event.target.value as Exclude<Role, "owner">;
               setInvite({
                 ...invite,
-                role: event.target.value as Exclude<Role, "owner">,
-              })
-            }
+                role,
+              });
+              setInvitePermissions(defaultPermissionsByRole[role]);
+            }}
           >
             <option value="specialist">Especialista</option>
             <option value="reception">Recepción</option>
@@ -363,6 +382,25 @@ export function TeamManager({
             {busy ? "Enviando…" : "Enviar invitación"}
           </button>
         </form>
+        <fieldset className="compensation-editor">
+          <legend>Permisos del acceso</legend>
+          <p>El rol propone una plantilla; puedes ajustarla antes de enviar la invitación.</p>
+          {PERMISSION_GROUPS.map((group) => (
+            <div key={group.label} className="service-assignment">
+              <strong>{group.label}</strong>
+              {group.permissions.map((permission) => (
+                <label key={permission.id}>
+                  <input
+                    type="checkbox"
+                    checked={invitePermissions.includes(permission.id)}
+                    onChange={() => setInvitePermissions((current) => current.includes(permission.id) ? current.filter((id) => id !== permission.id) : [...current, permission.id])}
+                  />
+                  <span>{permission.label}</span>
+                </label>
+              ))}
+            </div>
+          ))}
+        </fieldset>
       </section>
       <section className="team-configuration">
         <aside className="settings-card member-list">

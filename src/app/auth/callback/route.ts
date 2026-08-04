@@ -19,6 +19,12 @@ export async function GET(request: NextRequest) {
       },
     },
   );
-  await supabase.auth.exchangeCodeForSession(code);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    const failedDestination = new URL("/app/acceso", requestUrl.origin);
+    failedDestination.searchParams.set("flow", "invite");
+    failedDestination.searchParams.set("error", "expired-link");
+    return NextResponse.redirect(failedDestination);
+  }
   return response;
 }

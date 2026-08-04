@@ -10,7 +10,7 @@ type Integration = { public_key: string | null; mode: "test" | "production"; con
 const methodLabels: Record<Method, string> = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
 
 export function PaymentSettings({ settings, integration }: { settings: Settings; integration: Integration }) {
-  const [rules, setRules] = useState({ depositEnabled: settings?.booking_deposit_enabled ?? true, depositPercent: settings?.booking_deposit_percent ?? 30, expires: settings?.payment_link_expires_minutes ?? 30, offline: settings?.allow_offline_checkout ?? true, posMethods: settings?.pos_payment_methods?.length ? settings.pos_payment_methods : ["cash", "card", "transfer"] as Method[] });
+  const [rules, setRules] = useState({ depositEnabled: settings?.booking_deposit_enabled ?? true, depositPercent: settings?.booking_deposit_percent ?? 50, expires: settings?.payment_link_expires_minutes ?? 30, offline: settings?.allow_offline_checkout ?? true, posMethods: settings?.pos_payment_methods?.length ? settings.pos_payment_methods : ["cash", "card", "transfer"] as Method[] });
   const [credentials, setCredentials] = useState({ publicKey: integration?.public_key ?? "", accessToken: "", webhookSecret: "", mode: integration?.mode ?? "production" as "test" | "production" });
   const [isConfigured, setIsConfigured] = useState(Boolean(integration?.configured_at));
   const [message, setMessage] = useState("");

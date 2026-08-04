@@ -10,8 +10,9 @@ export default async function FinancePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/app/acceso");
 
-  const [{ data: profile }, { data: sales }, { data: saleItems }, { data: payments }, { data: expenses }, { data: expenseTags }, { data: tags }, { data: bookings }, { data: services }, { data: categories }, { data: specialists }, { data: specialistHours }, { data: cabinReservations }, { data: cabinHours }] = await Promise.all([
+  const [{ data: profile }, { data: permissions }, { data: sales }, { data: saleItems }, { data: payments }, { data: expenses }, { data: expenseTags }, { data: tags }, { data: bookings }, { data: services }, { data: categories }, { data: specialists }, { data: specialistHours }, { data: cabinReservations }, { data: cabinHours }] = await Promise.all([
     supabase.from("profiles").select("full_name,role").eq("id", user.id).single(),
+    supabase.rpc("my_permissions"),
     supabase.from("sales").select("id,total_cents,customer_id,booking_id,created_at,status").eq("status", "completed").order("created_at", { ascending:false }).limit(1500),
     supabase.from("sale_items").select("sale_id,service_id,description,quantity,total_cents,unit_price_cents").limit(5000),
     supabase.from("payments").select("sale_id,booking_id,amount_cents,method,status,created_at").eq("status", "completed").limit(3000),
@@ -27,7 +28,8 @@ export default async function FinancePage() {
     supabase.from("rental_space_hours").select("day_of_week,opens_at,closes_at,active").eq("active", true).limit(20),
   ]);
 
-  if (!profile || !["owner", "manager", "reception"].includes(profile.role)) redirect("/app");
+  const granted: string[] = Array.isArray(permissions) ? permissions : [];
+  if (!profile || !granted.includes("analytics.view")) redirect("/app");
 
   return <main className="ops-shell"><aside className="sidebar"><Link href="/" className="brand"><span>Ola</span> Bonita<small>BEAUTY SPA</small></Link><nav><Link href="/app">▦ <span>Agenda</span></Link><Link href="/app/operacion">◇ <span>Ventas y caja</span></Link><Link className="active" href="/app/analitica">◔ <span>Analítica</span></Link><Link href="/app/configuracion">⚙ <span>Configuración</span></Link></nav><div className="sidebar-user"><span className="avatar">{profile.full_name.slice(0, 2).toUpperCase()}</span><div><strong>{profile.full_name}</strong><small>Analítica</small></div></div></aside><section className="ops-main analytics-main"><AnalyticsDashboard sales={sales ?? []} saleItems={saleItems ?? []} payments={payments ?? []} expenses={expenses ?? []} expenseTags={expenseTags ?? []} tags={tags ?? []} bookings={bookings ?? []} services={services ?? []} categories={categories ?? []} specialists={specialists ?? []} specialistHours={specialistHours ?? []} cabinReservations={cabinReservations ?? []} cabinHours={cabinHours ?? []}/></section></main>;
 }
