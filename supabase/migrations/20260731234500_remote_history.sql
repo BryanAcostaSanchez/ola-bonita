@@ -1,0 +1,1 @@
+-- Historical remote migration retained for migration-history reconciliation.

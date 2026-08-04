@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { defaultPermissionsByRole, PERMISSION_GROUPS, type Permission } from "@/lib/permissions";
+import { RolePermissionManager } from "../configuracion/role-permission-manager";
 
 type Role = "owner" | "manager" | "reception" | "specialist";
 type Member = {
@@ -42,6 +43,7 @@ type Earning = {
   amount_cents: number;
   paid_at: string | null;
 };
+type ConfigurableRole = Exclude<Role, "owner">;
 
 const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const defaultHours = [
@@ -129,11 +131,22 @@ export function TeamManager({
   const [invitePermissions, setInvitePermissions] = useState<Permission[]>(
     defaultPermissionsByRole.specialist,
   );
+  const [roleTemplates, setRoleTemplates] = useState<Record<ConfigurableRole, Permission[]>>(defaultPermissionsByRole);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const specialists = members.filter(
     (member) => member.role === "specialist" && member.active,
   );
+
+  useEffect(() => {
+    void fetch("/api/role-permissions").then(async (response) => {
+      if (!response.ok) return;
+      const result = await response.json() as { templates?: Array<{ role: ConfigurableRole; permissions: Permission[] }> };
+      const templates = result.templates;
+      if (!templates) return;
+      setRoleTemplates((current) => ({ ...current, ...Object.fromEntries(templates.map((template) => [template.role, template.permissions])) }));
+    });
+  }, []);
 
   const selectedMember = useMemo(
     () => members.find((member) => member.id === selectedId),
@@ -184,7 +197,7 @@ export function TeamManager({
       const response = await fetch("/api/staff/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...invite, permissions: invitePermissions }),
+        body: JSON.stringify({ ...invite, ...(invitePermissions.length === roleTemplates[invite.role].length && invitePermissions.every((permission) => roleTemplates[invite.role].includes(permission)) ? {} : { permissions: invitePermissions }) }),
         signal: controller.signal,
       });
       const result = await response.json().catch(() => ({})) as { id?: string; error?: string };
@@ -210,7 +223,7 @@ export function TeamManager({
         },
       ]);
       setInvite({ fullName: "", email: "", role: "specialist" });
-      setInvitePermissions(defaultPermissionsByRole.specialist);
+      setInvitePermissions(roleTemplates.specialist);
     } catch (error) {
       setMessage(error instanceof DOMException && error.name === "AbortError" ? "La invitación tardó demasiado. Verifica la conexión e intenta de nuevo." : "No pudimos comunicarnos para enviar la invitación. Intenta de nuevo.");
     } finally {
@@ -336,6 +349,7 @@ export function TeamManager({
 
   return (
     <div className="team-workspace">
+      <RolePermissionManager />
       <section className="settings-card team-invite">
         <div>
           <p className="eyebrow">NUEVO ACCESO</p>
@@ -366,12 +380,12 @@ export function TeamManager({
           <select
             value={invite.role}
             onChange={(event) => {
-              const role = event.target.value as Exclude<Role, "owner">;
+              const role = event.target.value as ConfigurableRole;
               setInvite({
                 ...invite,
                 role,
               });
-              setInvitePermissions(defaultPermissionsByRole[role]);
+              setInvitePermissions(roleTemplates[role]);
             }}
           >
             <option value="specialist">Especialista</option>

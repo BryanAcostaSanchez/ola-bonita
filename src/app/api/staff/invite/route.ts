@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
-import { defaultPermissionsByRole, isPermission, type Permission } from "@/lib/permissions";
+import { isPermission, type Permission } from "@/lib/permissions";
 
 const roles = ["manager", "reception", "specialist"] as const;
 type StaffRole = (typeof roles)[number];
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   if (body.permissions !== undefined && (!Array.isArray(body.permissions) || !body.permissions.every(isPermission))) {
     return NextResponse.json({ error: "Los permisos seleccionados no son válidos." }, { status: 422 });
   }
-  const permissions = body.permissions === undefined ? defaultPermissionsByRole[body.role] : [...new Set(body.permissions)] as Permission[];
+  const permissions = body.permissions === undefined ? null : [...new Set(body.permissions)] as Permission[];
 
   try {
     const admin = createAdminClient();
