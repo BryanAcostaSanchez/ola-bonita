@@ -4162,6 +4162,20 @@ footer > a {
   border-bottom: 1px solid #edf2f0;
   height: 60px;
 }
+.calendar-hour-action {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--transition-fast);
+  width: 100%;
+}
+.calendar-hour-action:hover:not(:disabled) { background: color-mix(in srgb, var(--primary-soft) 68%, transparent); }
+.calendar-hour-action:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.calendar-hour-action:disabled { cursor: default; }
+.quick-booking-modal form { display: grid; gap: 13px; }
+.quick-booking-modal select { width: 100%; }
 .calendar-event {
   border-left: 4px solid;
   box-sizing: border-box;

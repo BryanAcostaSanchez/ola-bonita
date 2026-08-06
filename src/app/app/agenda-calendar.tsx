@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { QuickBookingModal } from "./quick-booking-modal";
 
 type Specialist = { id: string; full_name: string; color: string | null };
 type SpecialistHour = {
@@ -11,6 +12,7 @@ type SpecialistHour = {
   ends_at: string;
   active: boolean;
 };
+type Service = { id: string; name: string };
 type Booking = {
   id: string;
   specialist_id?: string | null;
@@ -77,6 +79,8 @@ export function AgendaCalendar({
   canAssign,
   canComplete,
   canManageCompensation,
+  canCreate,
+  services,
 }: {
   initialDate: string;
   bookings: Booking[];
@@ -85,6 +89,8 @@ export function AgendaCalendar({
   canAssign: boolean;
   canComplete: boolean;
   canManageCompensation: boolean;
+  canCreate: boolean;
+  services: Service[];
 }) {
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [view, setView] = useState<"team" | "general">("team");
@@ -92,6 +98,7 @@ export function AgendaCalendar({
   const [dragging, setDragging] = useState<Booking | null>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [quickSlot, setQuickSlot] = useState<{ date: string; time: string; specialistId: string | null } | null>(null);
   const daySwipeStart = useRef<{ x: number; y: number } | null>(null);
   const days = useMemo(
     () =>
@@ -375,7 +382,7 @@ export function AgendaCalendar({
                 }}
               >
                 {hours.map((hour) => (
-                  <div className="calendar-hour" key={hour} />
+                  <button type="button" className="calendar-hour calendar-hour-action" key={hour} disabled={!canCreate} aria-label={`Agregar cita con ${specialist.full_name} a las ${String(hour).padStart(2, "0")}:00`} onClick={() => setQuickSlot({ date: selectedDate, time: `${String(hour).padStart(2, "0")}:00`, specialistId: specialist.id === "unassigned" || specialist.id === "massage-cabin" ? null : specialist.id })} />
                 ))}
                 {visible
                   .filter(
@@ -414,7 +421,7 @@ export function AgendaCalendar({
             {days.map((day) => (
               <div className="calendar-column general-day-column" key={day.key}>
                 {hours.map((hour) => (
-                  <div className="calendar-hour" key={hour} />
+                  <button type="button" className="calendar-hour calendar-hour-action" key={hour} disabled={!canCreate} aria-label={`Agregar cita el ${day.label} a las ${String(hour).padStart(2, "0")}:00`} onClick={() => setQuickSlot({ date: day.key, time: `${String(hour).padStart(2, "0")}:00`, specialistId: null })} />
                 ))}
                 {activeBookings
                   .filter(
@@ -529,6 +536,7 @@ export function AgendaCalendar({
         </section>
       )}
       {message && <p className="access-message">{message}</p>}
+      {quickSlot && <QuickBookingModal slot={quickSlot} specialists={availableSpecialists} services={services} onClose={() => setQuickSlot(null)} />}
     </section>
   );
 }

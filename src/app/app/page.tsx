@@ -82,6 +82,7 @@ export default async function AppDashboard() {
     { data: hours },
     { data: weeklySpecialistHours },
     { data: assignments },
+    { data: services },
   ] = await Promise.all([
     supabase
       .from("bookings")
@@ -133,6 +134,7 @@ export default async function AppDashboard() {
       .select("specialist_id, day_of_week, starts_at, ends_at, active")
       .eq("active", true),
     supabase.from("specialist_services").select("specialist_id"),
+    supabase.from("services").select("id,name").eq("active", true).order("name"),
   ]);
 
   const bookingCount = bookings?.length ?? 0;
@@ -289,6 +291,8 @@ export default async function AppDashboard() {
           canAssign={granted.includes("bookings.assign")}
           canComplete={granted.includes("bookings.complete")}
           canManageCompensation={granted.includes("commissions.manage")}
+          canCreate={granted.includes("agenda.manage")}
+          services={services ?? []}
         />
         <section className="bottom-grid">
           <article className="today-card">
