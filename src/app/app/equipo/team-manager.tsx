@@ -508,6 +508,21 @@ export function TeamManager({
         </>
       )}
       {mode === "nomina" && (
+        <section className="settings-card team-invite payroll-invite">
+          <div>
+            <p className="eyebrow">EQUIPO</p>
+            <h2>Invita a una persona</h2>
+            <p>Agrega especialistas, recepción o gerencia sin salir de Nómina.</p>
+          </div>
+          <form onSubmit={sendInvite} className="team-invite-form">
+            <input required placeholder="Nombre completo" value={invite.fullName} onChange={(event) => setInvite({ ...invite, fullName: event.target.value })}/>
+            <input required type="email" placeholder="correo@ejemplo.com" value={invite.email} onChange={(event) => setInvite({ ...invite, email:event.target.value })}/>
+            <select value={invite.role} onChange={(event) => { const role = event.target.value as ConfigurableRole; setInvite({ ...invite, role }); setInvitePermissions(roleTemplates[role]); }}><option value="specialist">Especialista</option><option value="reception">Recepción</option><option value="manager">Gerencia</option></select>
+            <button className="new-booking" disabled={busy}>{busy ? "Enviando…" : "Enviar invitación"}</button>
+          </form>
+        </section>
+      )}
+      {mode === "nomina" && (
         <section className="payroll-summary" aria-label="Resumen de nómina">
           <article>
             <span>POR PAGAR</span>
