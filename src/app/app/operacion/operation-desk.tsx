@@ -59,14 +59,22 @@ type PosDraft = Partial<{
     notes: string;
   };
 }>;
+const posDraftKey = "ola-bonita:pos-draft:v2";
 function readPosDraft(): PosDraft {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(
+    const current = sessionStorage.getItem(posDraftKey);
+    if (current) return JSON.parse(current);
+    const previous = JSON.parse(
       sessionStorage.getItem("ola-bonita:pos-draft:v1") || "{}",
-    );
-  } catch {
+    ) as PosDraft;
+    // Preserve an unfinished ticket but intentionally reset the legacy default.
+    delete previous.method;
+    delete previous.firstSplitMethod;
     sessionStorage.removeItem("ola-bonita:pos-draft:v1");
+    return previous;
+  } catch {
+    sessionStorage.removeItem(posDraftKey);
     return {};
   }
 }
@@ -306,7 +314,7 @@ export function OperationDesk({
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     sessionStorage.setItem(
-      "ola-bonita:pos-draft:v1",
+      posDraftKey,
       JSON.stringify({
         cart,
         customServices,
@@ -485,7 +493,7 @@ export function OperationDesk({
     const { error } = await work();
     setBusy(false);
     if (error) return setNotice(friendlyError(error.message));
-    if (clearPosDraft) sessionStorage.removeItem("ola-bonita:pos-draft:v1");
+    if (clearPosDraft) sessionStorage.removeItem(posDraftKey);
     setNotice(success);
     window.setTimeout(() => window.location.reload(), 500);
   };
