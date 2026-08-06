@@ -4,8 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PaymentSettings } from "./payment-settings";
 import { OnlinePaymentOptions } from "./online-payment-options";
 import { UnpaidBookingOption } from "./unpaid-booking-option";
-import { WebPaymentProviderSettings } from "./web-payment-provider-settings";
-import { GetnetSettings } from "./getnet-settings";
+import { PaymentProviderSetup } from "./payment-provider-setup";
 import { CatalogManager } from "./catalog-manager";
 import { WebAgendaSettings } from "./web-agenda-settings";
 import { CategoryBookingSettings } from "./category-booking-settings";
@@ -292,7 +291,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
         />
       )}{" "}
       {activeSection === "pagos" && (
-        <><PaymentSettings settings={settings} integration={integration} /><WebPaymentProviderSettings settings={settings} getnetConfigured={Boolean(getnetIntegration?.configured_at)} /><OnlinePaymentOptions settings={settings} /><UnpaidBookingOption settings={settings} /><GetnetSettings configured={Boolean(getnetIntegration?.configured_at)} /></>
+        <><PaymentSettings settings={settings} integration={integration} /><PaymentProviderSetup settings={settings} getnetConfigured={Boolean(getnetIntegration?.configured_at)} /><OnlinePaymentOptions settings={settings} /><UnpaidBookingOption settings={settings} /></>
       )}{" "}
       {activeSection === "catalogo" && (
         <CatalogManager
