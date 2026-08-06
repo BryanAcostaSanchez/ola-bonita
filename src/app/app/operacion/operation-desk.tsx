@@ -258,13 +258,13 @@ export function OperationDesk({
     () => initialDraft.selectedCategoryId ?? null,
   );
   const [method, setMethod] = useState<Method>(
-    () => initialDraft.method ?? "cash",
+    () => initialDraft.method ?? "card",
   );
   const [splitPayment, setSplitPayment] = useState(
     () => initialDraft.splitPayment ?? false,
   );
   const [firstSplitMethod, setFirstSplitMethod] = useState<Method>(
-    () => initialDraft.firstSplitMethod ?? "cash",
+    () => initialDraft.firstSplitMethod ?? "card",
   );
   const [secondSplitMethod, setSecondSplitMethod] = useState<Method>(
     () => initialDraft.secondSplitMethod ?? "card",
