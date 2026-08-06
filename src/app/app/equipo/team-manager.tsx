@@ -1,12 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import {
-  defaultPermissionsByRole,
-  PERMISSION_GROUPS,
-  type Permission,
-} from "@/lib/permissions";
 import { RolePermissionManager } from "../configuracion/role-permission-manager";
 
 type Role = "owner" | "manager" | "reception" | "specialist";
@@ -148,37 +143,11 @@ export function TeamManager({
     email: "",
     role: "specialist" as Exclude<Role, "owner">,
   });
-  const [invitePermissions, setInvitePermissions] = useState<Permission[]>(
-    defaultPermissionsByRole.specialist,
-  );
-  const [roleTemplates, setRoleTemplates] = useState<
-    Record<ConfigurableRole, Permission[]>
-  >(defaultPermissionsByRole);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const specialists = members.filter(
     (member) => member.role === "specialist" && member.active,
   );
-
-  useEffect(() => {
-    void fetch("/api/role-permissions").then(async (response) => {
-      if (!response.ok) return;
-      const result = (await response.json()) as {
-        templates?: Array<{
-          role: ConfigurableRole;
-          permissions: Permission[];
-        }>;
-      };
-      const templates = result.templates;
-      if (!templates) return;
-      setRoleTemplates((current) => ({
-        ...current,
-        ...Object.fromEntries(
-          templates.map((template) => [template.role, template.permissions]),
-        ),
-      }));
-    });
-  }, []);
 
   const selectedMember = useMemo(
     () => members.find((member) => member.id === selectedId),
@@ -242,15 +211,7 @@ export function TeamManager({
       const response = await fetch("/api/staff/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...invite,
-          ...(invitePermissions.length === roleTemplates[invite.role].length &&
-          invitePermissions.every((permission) =>
-            roleTemplates[invite.role].includes(permission),
-          )
-            ? {}
-            : { permissions: invitePermissions }),
-        }),
+        body: JSON.stringify(invite),
         signal: controller.signal,
       });
       const result = (await response.json().catch(() => ({}))) as {
@@ -285,7 +246,6 @@ export function TeamManager({
         },
       ]);
       setInvite({ fullName: "", email: "", role: "specialist" });
-      setInvitePermissions(roleTemplates.specialist);
     } catch (error) {
       setMessage(
         error instanceof DOMException && error.name === "AbortError"
@@ -469,7 +429,6 @@ export function TeamManager({
                     ...invite,
                     role,
                   });
-                  setInvitePermissions(roleTemplates[role]);
                 }}
               >
                 <option value="specialist">Especialista</option>
@@ -481,37 +440,6 @@ export function TeamManager({
               </button>
             </form>
           </section>
-          <details className="settings-card invite-permissions">
-            <summary><span><strong>Personalizar permisos de esta invitación</strong><small>Por defecto se usa la plantilla del rol elegido.</small></span><b>⌄</b></summary>
-            <fieldset className="compensation-editor">
-              <legend>Permisos del acceso</legend>
-              <p>
-                El rol propone una plantilla; puedes ajustarla antes de enviar
-                la invitación.
-              </p>
-              {PERMISSION_GROUPS.map((group) => (
-                <div key={group.label} className="service-assignment">
-                  <strong>{group.label}</strong>
-                  {group.permissions.map((permission) => (
-                    <label key={permission.id}>
-                      <input
-                        type="checkbox"
-                        checked={invitePermissions.includes(permission.id)}
-                        onChange={() =>
-                          setInvitePermissions((current) =>
-                            current.includes(permission.id)
-                              ? current.filter((id) => id !== permission.id)
-                              : [...current, permission.id],
-                          )
-                        }
-                      />
-                      <span>{permission.label}</span>
-                    </label>
-                  ))}
-                </div>
-              ))}
-            </fieldset>
-          </details>
         </>
       )}
       {mode === "nomina" && (
