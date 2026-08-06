@@ -2241,8 +2241,57 @@ footer > a {
   }
 }
 .team-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   margin-top: 29px;
 }
+.team-payroll-hero {
+  align-items: end;
+  background: linear-gradient(125deg, #17494a, #256d67);
+  border-radius: 14px;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  order: 1;
+  overflow: hidden;
+  padding: 31px 34px;
+  position: relative;
+}
+.team-payroll-hero::after {
+  background: #d6a56c;
+  border-radius: 50%;
+  content: "";
+  height: 170px;
+  opacity: .14;
+  position: absolute;
+  right: -56px;
+  top: -78px;
+  width: 170px;
+}
+.team-payroll-hero > div { position: relative; z-index: 1; }
+.team-payroll-hero .eyebrow { color: #ffd9cb; margin-bottom: 10px; }
+.team-payroll-hero h1 { font-family: Georgia, serif; font-size: 31px; font-weight: 400; margin: 0 0 9px; }
+.team-payroll-hero p:not(.eyebrow) { color: #d4e6e2; line-height: 1.55; margin: 0; max-width: 610px; }
+.team-payroll-hero-meta { display: flex; flex-direction: column; gap: 8px; text-align: right; }
+.team-payroll-hero-meta span { border: 1px solid rgba(255,255,255,.26); border-radius: 999px; font-size: 11px; padding: 8px 12px; white-space: nowrap; }
+.payroll-workspace .payroll-summary { margin: 0; order: 2; }
+.payroll-workspace .payroll-cutoff-note { margin: -5px 0 0; order: 3; }
+.payroll-workspace .team-invite { order: 4; }
+.invite-permissions { order: 5; padding: 0; }
+.invite-permissions summary { align-items: center; color: #315657; cursor: pointer; display: flex; justify-content: space-between; list-style: none; padding: 17px 20px; }
+.invite-permissions summary::-webkit-details-marker { display: none; }
+.invite-permissions summary strong, .invite-permissions summary small { display: block; }
+.invite-permissions summary strong { font-size: 13px; }
+.invite-permissions summary small { color: #748c87; font-size: 11px; margin-top: 3px; }
+.invite-permissions summary > b { font-size: 18px; font-weight: 400; transition: transform .2s ease; }
+.invite-permissions[open] summary { border-bottom: 1px solid #e4ece9; }
+.invite-permissions[open] summary > b { transform: rotate(180deg); }
+.invite-permissions .compensation-editor { border: 0; margin: 0; padding: 18px 20px; }
+.payroll-workspace .external-payments-card { margin: 0; order: 6; }
+.payroll-workspace .compensation-default-card { margin: 0; order: 7; }
+.payroll-workspace .team-configuration { margin-top: 0; order: 8; }
+.payroll-workspace .role-permission-manager { order: 9; }
 .team-invite {
   align-items: center;
   display: flex;
@@ -3336,6 +3385,14 @@ footer > a {
   margin: 24px 0;
 }
 @media (max-width: 900px) {
+  .team-payroll-hero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+    padding: 26px 24px;
+  }
+  .team-payroll-hero h1 { font-size: 27px; }
+  .team-payroll-hero-meta { align-items: flex-start; text-align: left; }
   .ops-shell {
     grid-template-columns: 1fr;
   }

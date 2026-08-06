@@ -429,6 +429,10 @@ export function TeamManager({
     >
       {mode === "nomina" && (
         <>
+          <header className="team-payroll-hero">
+            <div><p className="eyebrow">EQUIPO Y NÓMINA</p><h1>Tu equipo, en un solo lugar</h1><p>Invita personas, define su acceso y disponibilidad, y administra sus comisiones sin cambiar de sección.</p></div>
+            <div className="team-payroll-hero-meta"><span>{members.length} personas</span><span>Corte semanal · domingo</span></div>
+          </header>
           <RolePermissionManager />
           <section className="settings-card team-invite">
             <div>
@@ -476,6 +480,9 @@ export function TeamManager({
                 {busy ? "Enviando…" : "Enviar invitación"}
               </button>
             </form>
+          </section>
+          <details className="settings-card invite-permissions">
+            <summary><span><strong>Personalizar permisos de esta invitación</strong><small>Por defecto se usa la plantilla del rol elegido.</small></span><b>⌄</b></summary>
             <fieldset className="compensation-editor">
               <legend>Permisos del acceso</legend>
               <p>
@@ -504,7 +511,7 @@ export function TeamManager({
                 </div>
               ))}
             </fieldset>
-          </section>
+          </details>
         </>
       )}
       {mode === "nomina" && (
