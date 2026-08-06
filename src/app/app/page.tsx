@@ -134,7 +134,11 @@ export default async function AppDashboard() {
       .select("specialist_id, day_of_week, starts_at, ends_at, active")
       .eq("active", true),
     supabase.from("specialist_services").select("specialist_id"),
-    supabase.from("services").select("id,name").eq("active", true).order("name"),
+    supabase
+      .from("services")
+      .select("id,name,duration_minutes,buffer_after_minutes")
+      .eq("active", true)
+      .order("name"),
   ]);
 
   const bookingCount = bookings?.length ?? 0;

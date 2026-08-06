@@ -41,6 +41,7 @@ type Customer = {
 };
 type Method = "cash" | "card" | "transfer";
 type CashSummary = { opening_float_cents: number; cash_sales_cents: number; card_sales_cents: number; transfer_sales_cents: number; online_sales_cents: number; total_sales_cents: number; cash_expenses_cents: number; total_expenses_cents: number; internal_commissions_cents: number; external_commissions_cents: number; expected_cash_cents: number };
+type CashCutResult = { expected_cash_cents: number; counted_cash_cents: number; variance_cents: number };
 
 type PosDraft = Partial<{
   cart: Record<string, number>;
@@ -303,8 +304,9 @@ export function OperationDesk({
   );
   const [opening, setOpening] = useState("");
   const [counted, setCounted] = useState("");
-  const [cashModal, setCashModal] = useState<"open" | "adjust" | "close" | null>(null);
+  const [cashModal, setCashModal] = useState<"open" | "adjust" | "close" | "result" | null>(null);
   const [cashSummary, setCashSummary] = useState<CashSummary | null>(null);
+  const [cashCutResult, setCashCutResult] = useState<CashCutResult | null>(null);
   const [expense, setExpense] = useState({
     category: "",
     description: "",
@@ -573,15 +575,17 @@ export function OperationDesk({
         }),
       "Fondo inicial actualizado.",
     );
-  const closeCash = () =>
-    run(
-      () =>
-        supabase.rpc("close_cash_session", {
-          p_counted_cash_cents: cents(counted || "0"),
-          p_notes: null,
-        }),
-      "Corte de caja guardado.",
-    );
+  async function closeCash() {
+    setBusy(true);
+    const { data, error } = await supabase.rpc("close_cash_session", {
+      p_counted_cash_cents: cents(counted || "0"),
+      p_notes: null,
+    });
+    setBusy(false);
+    if (error) { setNotice(friendlyError(error.message)); return; }
+    setCashCutResult((data?.[0] ?? null) as CashCutResult | null);
+    setCashModal("result");
+  }
   async function openCashCut() { setBusy(true); const { data, error } = await supabase.rpc("get_open_cash_session_summary"); setBusy(false); if (error) { setNotice(error.message); return; } setCashSummary(data as CashSummary); setCounted(""); setCashModal("close"); }
   const saveExpense = () =>
     run(
@@ -1388,45 +1392,47 @@ export function OperationDesk({
               ×
             </button>
             <p className="eyebrow">
-              {cashModal === "open" ? "APERTURA DE CAJA" : cashModal === "adjust" ? "CORREGIR APERTURA" : "CORTE DE CAJA"}
+              {cashModal === "open" ? "APERTURA DE CAJA" : cashModal === "adjust" ? "CORREGIR APERTURA" : cashModal === "close" ? "CORTE DE CAJA" : "CORTE GUARDADO"}
             </p>
             <h2 id="cash-modal-title">
               {cashModal === "open"
                 ? "¿Con cuánto efectivo inicias?"
-                : cashModal === "adjust" ? "Registra el fondo inicial" : "Resumen del corte"}
+                : cashModal === "adjust" ? "Registra el fondo inicial" : cashModal === "close" ? "Resumen del corte" : "Corte registrado"}
             </h2>
-            <p>{cashModal === "close" ? "Revisa los importes del turno y después cuenta el efectivo físico." : "Cuenta el efectivo físico que dejas en caja antes de comenzar a cobrar."}</p>
+            <p>{cashModal === "close" ? "Revisa los importes del turno y después cuenta el efectivo físico." : cashModal === "result" ? "La caja quedó cerrada y este resultado queda guardado en el corte." : "Cuenta el efectivo físico que dejas en caja antes de comenzar a cobrar."}</p>
             {cashModal === "close" && cashSummary && <div className="cash-cut-summary"><div><span>Ventas del turno</span><strong>{money.format(cashSummary.total_sales_cents / 100)}</strong></div><div><span>Tarjeta</span><strong>{money.format(cashSummary.card_sales_cents / 100)}</strong></div><div><span>Transferencia</span><strong>{money.format(cashSummary.transfer_sales_cents / 100)}</strong></div><div><span>Pago online</span><strong>{money.format(cashSummary.online_sales_cents / 100)}</strong></div><div><span>Fondo inicial</span><strong>{money.format(cashSummary.opening_float_cents / 100)}</strong></div><div><span>Efectivo cobrado</span><strong>{money.format(cashSummary.cash_sales_cents / 100)}</strong></div><div><span>Gastos en efectivo</span><strong>− {money.format(cashSummary.cash_expenses_cents / 100)}</strong></div><div className="cash-cut-expected"><span>Efectivo esperado</span><strong>{money.format(cashSummary.expected_cash_cents / 100)}</strong></div><div><span>Comisiones generadas</span><strong>{money.format((cashSummary.internal_commissions_cents + cashSummary.external_commissions_cents) / 100)}</strong><small>Equipo: {money.format(cashSummary.internal_commissions_cents / 100)} · Externos: {money.format(cashSummary.external_commissions_cents / 100)}</small></div></div>}
-            <label>
+            {cashModal !== "result" && <label>
               {cashModal === "close" ? "Efectivo contado" : "Monto inicial"}
               <input
                 autoFocus
-                value={opening}
-                onChange={(event) => setOpening(event.target.value)}
+                value={cashModal === "close" ? counted : opening}
+                onChange={(event) => cashModal === "close" ? setCounted(event.target.value) : setOpening(event.target.value)}
                 inputMode="decimal"
                 placeholder="Ej. 500.00"
               />
-            </label>
+            </label>}
+            {cashModal === "result" && cashCutResult && <div className="cash-cut-result"><span>Efectivo esperado <strong>{money.format(cashCutResult.expected_cash_cents / 100)}</strong></span><span>Efectivo contado <strong>{money.format(cashCutResult.counted_cash_cents / 100)}</strong></span><span className={cashCutResult.variance_cents === 0 ? "balanced" : "variance"}>Diferencia <strong>{money.format(cashCutResult.variance_cents / 100)}</strong></span></div>}
             <div>
-              <button
+              {cashModal !== "result" && <button
                 type="button"
                 className="secondary-button"
                 onClick={() => setCashModal(null)}
               >
                 Cancelar
-              </button>
+              </button>}
               <button
                 type="button"
                 className="primary-operation"
                 disabled={busy}
                 onClick={() => {
+                  if (cashModal === "result") { window.location.reload(); return; }
                   if (cashModal === "open") openCash();
                   else if (cashModal === "adjust") adjustOpening();
-                  else closeCash();
+                  else { void closeCash(); return; }
                   setCashModal(null);
                 }}
               >
-                {cashModal === "open" ? "Abrir caja" : cashModal === "adjust" ? "Guardar fondo" : "Confirmar corte"}
+                {cashModal === "open" ? "Abrir caja" : cashModal === "adjust" ? "Guardar fondo" : cashModal === "close" ? "Confirmar corte" : "Listo"}
               </button>
             </div>
           </section>

@@ -12,7 +12,12 @@ type SpecialistHour = {
   ends_at: string;
   active: boolean;
 };
-type Service = { id: string; name: string };
+type Service = {
+  id: string;
+  name: string;
+  duration_minutes: number;
+  buffer_after_minutes: number;
+};
 type Booking = {
   id: string;
   specialist_id?: string | null;
