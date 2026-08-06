@@ -86,7 +86,7 @@ export function TeamManager({
   externalPayments,
   defaultCommissionPercent,
 }: {
-  mode: "personal" | "nomina";
+  mode: "nomina";
   initialMembers: Member[];
   services: Service[];
   assignments: Assignment[];
@@ -425,9 +425,9 @@ export function TeamManager({
 
   return (
     <div
-      className={`team-workspace ${mode === "nomina" ? "payroll-workspace" : "personal-workspace"}`}
+      className="team-workspace payroll-workspace"
     >
-      {mode === "personal" && (
+      {mode === "nomina" && (
         <>
           <RolePermissionManager />
           <section className="settings-card team-invite">
@@ -506,21 +506,6 @@ export function TeamManager({
             </fieldset>
           </section>
         </>
-      )}
-      {mode === "nomina" && (
-        <section className="settings-card team-invite payroll-invite">
-          <div>
-            <p className="eyebrow">EQUIPO</p>
-            <h2>Invita a una persona</h2>
-            <p>Agrega especialistas, recepción o gerencia sin salir de Nómina.</p>
-          </div>
-          <form onSubmit={sendInvite} className="team-invite-form">
-            <input required placeholder="Nombre completo" value={invite.fullName} onChange={(event) => setInvite({ ...invite, fullName: event.target.value })}/>
-            <input required type="email" placeholder="correo@ejemplo.com" value={invite.email} onChange={(event) => setInvite({ ...invite, email:event.target.value })}/>
-            <select value={invite.role} onChange={(event) => { const role = event.target.value as ConfigurableRole; setInvite({ ...invite, role }); setInvitePermissions(roleTemplates[role]); }}><option value="specialist">Especialista</option><option value="reception">Recepción</option><option value="manager">Gerencia</option></select>
-            <button className="new-booking" disabled={busy}>{busy ? "Enviando…" : "Enviar invitación"}</button>
-          </form>
-        </section>
       )}
       {mode === "nomina" && (
         <section className="payroll-summary" aria-label="Resumen de nómina">
@@ -678,7 +663,7 @@ export function TeamManager({
                 <p className="member-email">{selectedMember.email}</p>
               )}
             </div>
-            {selectedMember && mode === "personal" && (
+            {selectedMember && mode === "nomina" && (
               <div className="member-actions">
                 <button
                   type="button"
@@ -822,7 +807,7 @@ export function TeamManager({
                   )}
                 </fieldset>
               )}
-              {mode === "personal" && (
+              {mode === "nomina" && (
                 <>
                   <div className="commission-services-heading">
                     <strong>Servicios que atiende</strong>
@@ -911,18 +896,9 @@ export function TeamManager({
                     onClick={saveAvailability}
                     disabled={busy}
                   >
-                    {busy ? "Guardando…" : "Guardar disponibilidad"}
+                    {busy ? "Guardando…" : "Guardar persona"}
                   </button>
                 </>
-              )}
-              {mode === "nomina" && (
-                <button
-                  className="new-booking"
-                  onClick={saveAvailability}
-                  disabled={busy}
-                >
-                  {busy ? "Guardando…" : "Guardar esquema de pago"}
-                </button>
               )}
             </>
           ) : (

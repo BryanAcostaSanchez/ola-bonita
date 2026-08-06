@@ -15,7 +15,6 @@ export const dynamic = "force-dynamic";
 
 type SettingsSection =
   | "agenda"
-  | "personal"
   | "nomina"
   | "pagos"
   | "catalogo"
@@ -35,16 +34,10 @@ const sections: Array<{
     detail: "Horarios y capacidad",
   },
   {
-    id: "personal",
-    group: "OPERACIÓN",
-    label: "Personal y horarios",
-    detail: "Accesos, servicios y disponibilidad",
-  },
-  {
     id: "nomina",
     group: "OPERACIÓN",
-    label: "Nómina",
-    detail: "Comisiones, saldos y pagos",
+    label: "Equipo y nómina",
+    detail: "Personal, horarios, comisiones y pagos",
   },
   {
     id: "pagos",
@@ -73,6 +66,7 @@ const sections: Array<{
 ];
 
 export async function SettingsPageContent({ section }: { section: string }) {
+  if (section === "personal") redirect("/app/configuracion/nomina");
   const supabase = await createServerClient();
   const {
     data: { user },
@@ -94,7 +88,6 @@ export async function SettingsPageContent({ section }: { section: string }) {
   const visibleSections = sections.filter((section) => {
     const required: Record<SettingsSection, string> = {
       agenda: "settings.agenda",
-      personal: "team.manage",
       nomina: "team.manage",
       pagos: "settings.payments",
       catalogo: "settings.catalog",
@@ -275,19 +268,6 @@ export async function SettingsPageContent({ section }: { section: string }) {
             rentalSpaces={cabinSpaces ?? []}
           />
         </>
-      )}{" "}
-      {activeSection === "personal" && (
-        <TeamManager
-          mode="personal"
-          initialMembers={membersWithEmail}
-          services={teamServices}
-          assignments={assignments ?? []}
-          initialHours={specialistHours ?? []}
-          compensations={compensations ?? []}
-          earnings={earnings ?? []}
-          externalPayments={externalPayments ?? []}
-          defaultCommissionPercent={settings?.default_commission_percent ?? 0}
-        />
       )}{" "}
       {activeSection === "nomina" && (
         <TeamManager
