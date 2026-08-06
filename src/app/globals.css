@@ -6516,6 +6516,15 @@ footer > a {
 .cash-modal > div:last-child button {
   flex: 1;
 }
+.cash-cut-summary { border: 1px solid var(--border); border-radius: var(--radius-md); display: grid; gap: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 18px 0; overflow: hidden; }
+.cash-cut-summary > div { border-bottom: 1px solid var(--border-subtle); display: grid; gap: 4px; padding: 11px 12px; }
+.cash-cut-summary > div:nth-child(odd) { border-right: 1px solid var(--border-subtle); }
+.cash-cut-summary > div:nth-last-child(-n + 1) { border-bottom: 0; }
+.cash-cut-summary span { color: var(--text-secondary); font-size: 10px; font-weight: 600; }
+.cash-cut-summary strong { color: var(--text-heading); font-size: 14px; }
+.cash-cut-summary small { color: var(--text-secondary); font-size: 9px; line-height: 1.35; }
+.cash-cut-summary .cash-cut-expected { background: var(--primary-soft); }
+@media (max-width: 520px) { .cash-cut-summary { grid-template-columns: 1fr; } .cash-cut-summary > div:nth-child(odd) { border-right: 0; } }
 .cash-modal-close {
   background: transparent;
   border: 0;
