@@ -75,6 +75,27 @@ const money = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
 });
+const currencyInputValue = (value: string) => {
+  const cleaned = value.replace(/[^\d.,]/g, "");
+  const comma = cleaned.lastIndexOf(",");
+  const dot = cleaned.lastIndexOf(".");
+  if (comma >= 0 && dot >= 0)
+    return comma > dot
+      ? cleaned.replaceAll(".", "").replace(",", ".")
+      : cleaned.replaceAll(",", "");
+  return cleaned.replace(",", ".");
+};
+const currencyInputFormat = (value: string) => {
+  const amount = Number(currencyInputValue(value));
+  return Number.isFinite(amount) && amount > 0
+    ? new Intl.NumberFormat("es-MX", {
+        style: "currency",
+        currency: "MXN",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount)
+    : "";
+};
 
 function friendlyError(message: string) {
   const normalized = message.toLowerCase();
@@ -371,7 +392,7 @@ export function OperationDesk({
       )
     : [];
   const cents = (value: string) =>
-    Math.round(Number(value.replace(",", ".")) * 100);
+    Math.round(Number(currencyInputValue(value)) * 100);
   const total = useMemo(
     () =>
       services.reduce(
@@ -680,17 +701,36 @@ export function OperationDesk({
                     }
                     placeholder="Nombre del servicio"
                   />
-                  <input
-                    value={customDraft.amount}
-                    onChange={(event) =>
-                      setCustomDraft({
-                        ...customDraft,
-                        amount: event.target.value,
-                      })
-                    }
-                    inputMode="decimal"
-                    placeholder="Importe a cobrar"
-                  />
+                  <label className="currency-field">
+                    <span>Importe a cobrar</span>
+                    <input
+                      value={customDraft.amount}
+                      onChange={(event) =>
+                        setCustomDraft({
+                          ...customDraft,
+                          amount: currencyInputValue(event.target.value),
+                        })
+                      }
+                      onFocus={() =>
+                        setCustomDraft({
+                          ...customDraft,
+                          amount: currencyInputValue(customDraft.amount),
+                        })
+                      }
+                      onBlur={() =>
+                        setCustomDraft({
+                          ...customDraft,
+                          amount: currencyInputFormat(customDraft.amount),
+                        })
+                      }
+                      inputMode="decimal"
+                      pattern="[0-9]*[.,]?[0-9]*"
+                      enterKeyHint="next"
+                      placeholder="$0.00"
+                      aria-label="Importe a cobrar en pesos mexicanos"
+                    />
+                    <small>MXN</small>
+                  </label>
                   <input
                     value={customDraft.note}
                     onChange={(event) =>
