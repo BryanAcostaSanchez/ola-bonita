@@ -3809,6 +3809,37 @@ footer > a {
   padding: 10px;
   width: 100%;
 }
+.getnet-help {
+  border-top: 1px solid #edf1ef;
+  color: #5b7775;
+  font-size: 11px;
+  line-height: 1.55;
+  padding-top: 15px;
+}
+.getnet-help summary {
+  color: #315d5d;
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+.getnet-help summary::-webkit-details-marker {
+  display: none;
+}
+.getnet-help summary b {
+  display: inline-block;
+  margin-left: 5px;
+  transition: transform .2s ease;
+}
+.getnet-help[open] summary b {
+  transform: rotate(180deg);
+}
+.getnet-help ol {
+  margin: 12px 0;
+  padding-left: 18px;
+}
+.getnet-help .text-link {
+  font-size: 11px;
+}
 .settings-message {
   margin: 20px 0 0;
 }
