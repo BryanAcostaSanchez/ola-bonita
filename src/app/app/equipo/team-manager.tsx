@@ -586,18 +586,9 @@ export function TeamManager({
             especialista puede usar un porcentaje distinto.
           </p>
           <div className="compensation-default-input">
-            <label>
-              Porcentaje global
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={globalCommissionPercent}
-                onChange={(event) =>
-                  setGlobalCommissionPercent(event.target.value)
-                }
-              />
+            <label className="commission-rate-field">
+              <span>Porcentaje global</span>
+              <span className="commission-rate-control"><input type="number" min="0" max="100" step="0.01" value={globalCommissionPercent} onChange={(event) => setGlobalCommissionPercent(event.target.value)} aria-label="Porcentaje global de comisión"/><b>%</b></span>
             </label>
             <button
               type="button"

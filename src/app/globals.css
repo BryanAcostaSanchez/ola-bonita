@@ -6643,15 +6643,33 @@ footer > a {
   gap: 6px;
   min-width: 190px;
 }
-.compensation-default-input input {
+.commission-rate-control {
+  align-items: center;
   background: #fffaf6;
   border: 1px solid #d6e1de;
   border-radius: 6px;
+  display: flex;
+  min-height: 42px;
+  overflow: hidden;
+  width: 100%;
+}
+.compensation-default-input input {
+  appearance: textfield;
+  background: transparent;
+  border: 0;
   color: #17494a;
   font: inherit;
-  min-height: 42px;
-  padding: 8px 10px;
+  min-width: 0;
+  outline: 0;
+  padding: 8px 0 8px 12px;
   width: 100%;
+}
+.commission-rate-control b {
+  background: #edf4f1;
+  color: #315657;
+  font-size: 14px;
+  min-height: 42px;
+  padding: 11px 13px;
 }
 .compensation-default-input .new-booking {
   min-height: 42px;
