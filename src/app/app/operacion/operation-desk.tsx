@@ -469,8 +469,14 @@ export function OperationDesk({
     window.setTimeout(() => window.location.reload(), 500);
   };
 
-  const checkout = () =>
-    run(
+  const checkout = () => {
+    if (!cashSession) {
+      setNotice("Abre caja para registrar ventas. Tu ticket se conservará mientras la abres.");
+      setOpening("");
+      setCashModal("open");
+      return;
+    }
+    return run(
       () =>
         supabase.rpc("record_pos_sale", {
           p_items: [
@@ -519,6 +525,7 @@ export function OperationDesk({
       "Venta registrada.",
       true,
     );
+  };
   const openCash = () =>
     run(
       () =>
@@ -1098,6 +1105,7 @@ export function OperationDesk({
               onChange={(event) => setSaleNote(event.target.value)}
               placeholder="Nota de venta (opcional)"
             />
+            {!cashSession && <div className="cash-required-notice"><div><strong>Abre caja antes de cobrar</strong><span>El ticket se conserva mientras registras el fondo inicial.</span></div><button type="button" className="secondary-operation" onClick={() => { setOpening(""); setCashModal("open"); }}>Abrir caja</button></div>}
             <div className="payment-heading">
               <p className="payment-label">¿Cómo pagó?</p>
               <button

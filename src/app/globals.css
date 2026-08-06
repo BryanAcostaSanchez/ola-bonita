@@ -4685,6 +4685,25 @@ footer > a {
   font-weight: 700;
   margin: 18px 0 -4px;
 }
+.cash-required-notice {
+  align-items: center;
+  background: #fff7e8;
+  border: 1px solid #edcf9d;
+  border-radius: 10px;
+  color: #675336;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin: 14px 0;
+  padding: 11px 12px;
+}
+.cash-required-notice strong, .cash-required-notice span { display: block; }
+.cash-required-notice strong { font-size: 12px; }
+.cash-required-notice span { font-size: 10px; line-height: 1.4; margin-top: 2px; }
+.cash-required-notice .secondary-operation { flex: 0 0 auto; }
+@media (max-width: 520px) {
+  .cash-required-notice { align-items: stretch; flex-direction: column; }
+}
 .payment-methods button {
   border-radius: 11px;
   min-height: 48px;
