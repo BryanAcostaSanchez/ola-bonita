@@ -3165,6 +3165,8 @@ footer > a {
   top: 108px;
   z-index: 29;
 }
+/* El origen interno de una venta no es un filtro operativo para Ola Bonita. */
+.analytics-filters select:nth-of-type(3) { display: none; }
 .net-flow-card > p {
   margin: 0 0 18px;
 }
