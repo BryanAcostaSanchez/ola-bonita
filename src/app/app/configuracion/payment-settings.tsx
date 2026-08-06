@@ -6,12 +6,12 @@ import { Hint } from "./hint";
 
 type Method = "cash" | "card" | "transfer";
 type NoShowPolicy = "keep_deposit" | "reschedule_credit" | "refund_review";
-type Settings = { id: string; booking_deposit_enabled: boolean; booking_deposit_percent: number; payment_link_expires_minutes: number; allow_offline_checkout: boolean; pos_payment_methods: Method[]; no_show_deposit_policy: NoShowPolicy; no_show_reschedule_window_days: number } | null;
+type Settings = { id: string; booking_deposit_enabled: boolean; booking_deposit_percent: number; payment_link_expires_minutes: number; allow_offline_checkout: boolean; allow_booking_without_online_payment: boolean; pos_payment_methods: Method[]; no_show_deposit_policy: NoShowPolicy; no_show_reschedule_window_days: number } | null;
 type Integration = { public_key: string | null; mode: "test" | "production"; configured_at: string | null } | null;
 const methodLabels: Record<Method, string> = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
 
 export function PaymentSettings({ settings, integration }: { settings: Settings; integration: Integration }) {
-  const [rules, setRules] = useState({ depositEnabled: settings?.booking_deposit_enabled ?? true, depositPercent: settings?.booking_deposit_percent ?? 50, expires: settings?.payment_link_expires_minutes ?? 30, offline: settings?.allow_offline_checkout ?? true, posMethods: settings?.pos_payment_methods?.length ? settings.pos_payment_methods : ["cash", "card", "transfer"] as Method[], noShowPolicy: settings?.no_show_deposit_policy ?? "keep_deposit" as NoShowPolicy, rescheduleDays: settings?.no_show_reschedule_window_days ?? 30 });
+  const [rules, setRules] = useState({ depositEnabled: settings?.booking_deposit_enabled ?? true, depositPercent: settings?.booking_deposit_percent ?? 50, expires: settings?.payment_link_expires_minutes ?? 30, offline: settings?.allow_offline_checkout ?? true, allowUnpaidBooking: settings?.allow_booking_without_online_payment ?? false, posMethods: settings?.pos_payment_methods?.length ? settings.pos_payment_methods : ["cash", "card", "transfer"] as Method[], noShowPolicy: settings?.no_show_deposit_policy ?? "keep_deposit" as NoShowPolicy, rescheduleDays: settings?.no_show_reschedule_window_days ?? 30 });
   const [credentials, setCredentials] = useState({ publicKey: integration?.public_key ?? "", accessToken: "", webhookSecret: "", mode: integration?.mode ?? "production" as "test" | "production" });
   const [isConfigured, setIsConfigured] = useState(Boolean(integration?.configured_at));
   const [message, setMessage] = useState("");
@@ -23,7 +23,7 @@ export function PaymentSettings({ settings, integration }: { settings: Settings;
     if (!settings) return;
     if (!rules.posMethods.length) return setMessage("Deja al menos un método de pago habilitado para el POS.");
     setBusy(true); setMessage("");
-    const { error } = await supabase.from("business_settings").update({ booking_deposit_enabled: rules.depositEnabled, booking_deposit_percent: rules.depositPercent, payment_link_expires_minutes: rules.expires, allow_offline_checkout: rules.offline, pos_payment_methods: rules.posMethods, no_show_deposit_policy: rules.noShowPolicy, no_show_reschedule_window_days: rules.rescheduleDays }).eq("id", settings.id);
+    const { error } = await supabase.from("business_settings").update({ booking_deposit_enabled: rules.depositEnabled, booking_deposit_percent: rules.depositPercent, payment_link_expires_minutes: rules.expires, allow_offline_checkout: rules.offline, allow_booking_without_online_payment: rules.allowUnpaidBooking, pos_payment_methods: rules.posMethods, no_show_deposit_policy: rules.noShowPolicy, no_show_reschedule_window_days: rules.rescheduleDays }).eq("id", settings.id);
     setMessage(error?.message || "Reglas de reserva y métodos del POS guardados."); setBusy(false);
   }
   async function saveCredentials(event: FormEvent<HTMLFormElement>) {
