@@ -3141,6 +3141,68 @@ footer > a {
 .analytics-section > header {
   margin-bottom: 20px;
 }
+.analytics-section {
+  padding: 32px;
+}
+.net-flow-card > p {
+  margin: 0 0 18px;
+}
+.net-flow {
+  display: grid;
+  gap: 16px;
+}
+.net-flow-summary {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.net-flow-summary > div {
+  background: var(--background-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 11px;
+}
+.net-flow-summary span,
+.net-flow-values span,
+.net-flow-net > span {
+  color: var(--text-secondary);
+  display: block;
+  font-size: 11px;
+}
+.net-flow-summary strong {
+  color: var(--text-heading);
+  display: block;
+  font-family: "Jost", Arial, sans-serif;
+  font-size: 17px;
+  margin-top: 4px;
+}
+.net-flow-summary .positive strong,
+.net-flow-net .positive { color: var(--success); }
+.net-flow-summary .negative strong,
+.net-flow-net .negative { color: var(--danger); }
+.net-flow-days {
+  display: grid;
+  gap: 8px;
+}
+.net-flow-day {
+  align-items: center;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 43px minmax(155px, 1fr) minmax(120px, .9fr);
+  padding: 10px 0 0;
+}
+.net-flow-date strong { color: var(--text-heading); display: block; font-size: 16px; }
+.net-flow-date span { color: var(--text-secondary); font-size: 10px; text-transform: capitalize; }
+.net-flow-values { display: flex; gap: 13px; }
+.net-flow-values span { white-space: nowrap; }
+.net-flow-values b { color: var(--text-primary); font-weight: 600; margin-left: 3px; }
+.net-flow-net { display: grid; gap: 3px; grid-template-columns: auto auto 1fr; align-items: center; }
+.net-flow-net strong { font-family: "Jost", Arial, sans-serif; font-size: 13px; text-align: right; }
+.net-flow-net i { background: var(--border-subtle); border-radius: 999px; display: block; height: 6px; overflow: hidden; }
+.net-flow-net i b { border-radius: inherit; display: block; height: 100%; }
+.net-flow-net i b.positive { background: var(--success); }
+.net-flow-net i b.negative { background: var(--danger); }
 .analytics-grid {
   display: grid;
   gap: 16px;

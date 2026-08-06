@@ -261,7 +261,7 @@ export default async function AppDashboard() {
         <section className="metric-grid">
           <article>
             <span>VENTAS DE HOY</span>
-            <strong>{money.format(salesTotal)}</strong>
+            <strong>{money.format(salesTotal / 100)}</strong>
             <small>Ingresos registrados hoy</small>
           </article>
           <article>
