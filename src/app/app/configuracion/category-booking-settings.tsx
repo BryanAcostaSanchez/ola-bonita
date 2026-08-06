@@ -137,6 +137,18 @@ export function CategoryBookingSettings({
         Elige si esta categoría usa el horario general del spa o si necesita
         su propio horario y límite de citas.
       </p>
+      <aside className="schedule-explainer">
+        <strong>¿Cómo se ve esto en tu sitio web?</strong>
+        <p>
+          Cuando una persona elige un servicio de esta categoría, sólo verá los
+          horarios que configures aquí. Las demás categorías continúan usando
+          el horario general del spa.
+        </p>
+        <small>
+          Ejemplo: si Masajes tiene horario propio de 11:00 a 16:00, esos son
+          los únicos horarios que aparecerán al reservar un masaje.
+        </small>
+      </aside>
       <div className="category-booking-picker">
         <label>
           Categoría
@@ -182,6 +194,7 @@ export function CategoryBookingSettings({
           <span><strong>Horario propio para esta categoría</strong><small>Define aquí los días, horas y máximo de citas simultáneas.</small></span>
         </label>
       </fieldset>
+      {rentalSpaceId && <p className="schedule-space-note">Además, esta categoría comparte disponibilidad con <strong>{rentalSpaces.find((space) => space.id === rentalSpaceId)?.name}</strong>: si se reserva un servicio de esta categoría, ese horario también se bloquea para la renta del espacio y viceversa.</p>}
       {custom && (
         <div className="custom-schedule-panel">
           <label className="category-capacity">
