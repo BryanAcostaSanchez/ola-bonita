@@ -134,8 +134,8 @@ export function CategoryBookingSettings({
       <p className="eyebrow">EXCEPCIONES POR CATEGORÍA</p>
       <h2>Disponibilidad por tipo de servicio</h2>
       <p>
-        Por defecto, todas las categorías usan el horario general. Vincula un
-        espacio cuando una cita debe bloquear físicamente esa cabina.
+        Elige si esta categoría usa el horario general del spa o si necesita
+        su propio horario y límite de citas.
       </p>
       <div className="category-booking-picker">
         <label>
@@ -150,18 +150,6 @@ export function CategoryBookingSettings({
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          Máximo simultáneo{" "}
-          <Hint text="Sólo aplica cuando esta categoría usa un horario propio." />
-          <input
-            type="number"
-            min="1"
-            max="50"
-            value={capacity}
-            disabled={!custom}
-            onChange={(event) => setCapacity(event.target.value)}
-          />
         </label>
         <label>
           Espacio requerido{" "}
@@ -183,22 +171,25 @@ export function CategoryBookingSettings({
           </small>
         </label>
       </div>
-      <label className="check-label web-booking-toggle">
-        <input
-          type="checkbox"
-          checked={custom}
-          onChange={(event) => setCustom(event.target.checked)}
-        />
-        <span>
-          <strong>Usar horario y capacidad propios</strong>
-          <small>
-            Por ejemplo, Masajes puede tener capacidad de 1 aunque el horario
-            general permita más citas.
-          </small>
-        </span>
-      </label>
+      <fieldset className="schedule-mode">
+        <legend>¿Qué horario debe usar {categories.find((category) => category.id === categoryId)?.name}?</legend>
+        <label className={!custom ? "selected" : ""}>
+          <input type="radio" name="schedule-mode" checked={!custom} onChange={() => setCustom(false)} />
+          <span><strong>Horario general del spa</strong><small>Usa los horarios de la Agenda web y su capacidad general.</small></span>
+        </label>
+        <label className={custom ? "selected" : ""}>
+          <input type="radio" name="schedule-mode" checked={custom} onChange={() => setCustom(true)} />
+          <span><strong>Horario propio para esta categoría</strong><small>Define aquí los días, horas y máximo de citas simultáneas.</small></span>
+        </label>
+      </fieldset>
       {custom && (
-        <div className="web-agenda-days category-booking-days">
+        <div className="custom-schedule-panel">
+          <label className="category-capacity">
+            Máximo de citas simultáneas <Hint text="La web no ofrecerá más citas de esta categoría al mismo tiempo que este límite." />
+            <input type="number" min="1" max="50" value={capacity} onChange={(event) => setCapacity(event.target.value)} />
+          </label>
+          <p>Configura el horario propio que se mostrará para esta categoría.</p>
+          <div className="web-agenda-days category-booking-days">
           {schedule.map((hour, index) => (
             <div key={hour.day_of_week}>
               <label>
@@ -248,6 +239,7 @@ export function CategoryBookingSettings({
               />
             </div>
           ))}
+          </div>
         </div>
       )}
       <button
