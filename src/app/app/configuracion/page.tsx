@@ -5,6 +5,7 @@ import { PaymentSettings } from "./payment-settings";
 import { OnlinePaymentOptions } from "./online-payment-options";
 import { UnpaidBookingOption } from "./unpaid-booking-option";
 import { PaymentProviderSetup } from "./payment-provider-setup";
+import { AccountSettings } from "./account-settings";
 import { CatalogManager } from "./catalog-manager";
 import { WebAgendaSettings } from "./web-agenda-settings";
 import { CategoryBookingSettings } from "./category-booking-settings";
@@ -16,6 +17,7 @@ import { SettingsShell } from "./settings-shell";
 export const dynamic = "force-dynamic";
 
 type SettingsSection =
+  | "cuenta"
   | "agenda"
   | "nomina"
   | "pagos"
@@ -29,6 +31,12 @@ const sections: Array<{
   label: string;
   detail: string;
 }> = [
+  {
+    id: "cuenta",
+    group: "NEGOCIO",
+    label: "Cuenta y negocio",
+    detail: "Datos generales y reservas",
+  },
   {
     id: "agenda",
     group: "RESERVAS",
@@ -89,6 +97,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
     redirect("/app");
   const visibleSections = sections.filter((section) => {
     const required: Record<SettingsSection, string> = {
+      cuenta: "settings.agenda",
       agenda: "settings.agenda",
       nomina: "team.manage",
       pagos: "settings.payments",
@@ -130,7 +139,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
     supabase
       .from("business_settings")
       .select(
-        "id, booking_deposit_enabled, booking_deposit_percent, payment_link_expires_minutes, allow_offline_checkout, allow_booking_without_online_payment, web_payments_enabled, web_payment_provider, pos_payment_methods, slot_interval_minutes, web_booking_capacity, default_commission_percent, no_show_deposit_policy, no_show_reschedule_window_days, online_payment_options",
+        "id, business_name, timezone, currency, booking_lead_time_minutes, booking_deposit_enabled, booking_deposit_percent, payment_link_expires_minutes, allow_offline_checkout, allow_booking_without_online_payment, web_payments_enabled, web_payment_provider, pos_payment_methods, slot_interval_minutes, web_booking_capacity, default_commission_percent, no_show_deposit_policy, no_show_reschedule_window_days, online_payment_options",
       )
       .limit(1)
       .maybeSingle(),
@@ -263,6 +272,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
       profileRole={profile.role}
       sections={visibleSections}
     >
+      {activeSection === "cuenta" && <AccountSettings settings={settings} />} {" "}
       {activeSection === "agenda" && (
         <>
           <WebAgendaSettings settings={settings} hours={businessHours ?? []} />
