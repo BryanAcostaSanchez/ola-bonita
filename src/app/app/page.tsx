@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { AgendaCalendar } from "./agenda-calendar";
 import { SetupOwner } from "./setup-owner";
+import { CashStatusCard } from "./cash-status-card";
 
 const money = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -266,15 +267,10 @@ export default async function AppDashboard() {
                 : readyMessage}
             </small>
           </article>
-          <article>
-            <span>ESTADO DE CAJA</span>
-            <strong>{cashSession ? "Abierta" : "Cerrada"}</strong>
-            <small>
-              {cashSession
-                ? "Lista para cobros en efectivo"
-                : "Ábrela desde Ventas y caja"}
-            </small>
-          </article>
+          <CashStatusCard
+            isOpen={Boolean(cashSession)}
+            canManage={granted.includes("operations.cash")}
+          />
           <article>
             <span>OCUPACIÓN</span>
             <strong>{occupancy === null ? "—" : `${occupancy}%`}</strong>
