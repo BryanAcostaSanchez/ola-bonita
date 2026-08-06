@@ -4718,22 +4718,65 @@ footer > a {
 }
 .cash-required-notice {
   align-items: center;
-  background: #fff7e8;
-  border: 1px solid #edcf9d;
-  border-radius: 10px;
+  background: linear-gradient(105deg, #fff8eb, #fffdf8);
+  border: 1px solid #eed2a3;
+  border-radius: 14px;
   color: #675336;
-  display: flex;
-  gap: 14px;
-  justify-content: space-between;
-  margin: 14px 0;
-  padding: 11px 12px;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  margin: 16px 0;
+  padding: 13px;
 }
-.cash-required-notice strong, .cash-required-notice span { display: block; }
-.cash-required-notice strong { font-size: 12px; }
-.cash-required-notice span { font-size: 10px; line-height: 1.4; margin-top: 2px; }
-.cash-required-notice .secondary-operation { flex: 0 0 auto; }
+.cash-required-icon {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #efcf9b;
+  border-radius: 10px;
+  color: #bb7a32;
+  display: flex;
+  font-size: 16px;
+  font-weight: 800;
+  height: 34px;
+  justify-content: center;
+  width: 34px;
+}
+.cash-required-copy { min-width: 0; }
+.cash-required-copy > span {
+  color: #bc7932;
+  display: block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  margin-bottom: 3px;
+}
+.cash-required-copy strong {
+  color: #624b2e;
+  display: block;
+  font-size: 12px;
+}
+.cash-required-copy p {
+  color: #887254;
+  font-size: 10px;
+  line-height: 1.4;
+  margin: 3px 0 0;
+}
+.cash-required-action {
+  background: #1d7465;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  cursor: pointer;
+  font: 700 11px inherit;
+  min-height: 38px;
+  padding: 0 13px;
+  white-space: nowrap;
+}
+.cash-required-action:hover { background: #155e52; }
+.cash-required-action span { margin-left: 4px; }
 @media (max-width: 520px) {
-  .cash-required-notice { align-items: stretch; flex-direction: column; }
+  .cash-required-notice { grid-template-columns: 34px minmax(0, 1fr); }
+  .cash-required-action { grid-column: 1 / -1; width: 100%; }
 }
 .payment-methods button {
   border-radius: 11px;

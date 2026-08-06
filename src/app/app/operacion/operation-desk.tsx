@@ -1105,7 +1105,7 @@ export function OperationDesk({
               onChange={(event) => setSaleNote(event.target.value)}
               placeholder="Nota de venta (opcional)"
             />
-            {!cashSession && <div className="cash-required-notice"><div><strong>Abre caja antes de cobrar</strong><span>El ticket se conserva mientras registras el fondo inicial.</span></div><button type="button" className="secondary-operation" onClick={() => { setOpening(""); setCashModal("open"); }}>Abrir caja</button></div>}
+            {!cashSession && <aside className="cash-required-notice" aria-label="Caja cerrada"><span className="cash-required-icon" aria-hidden="true">$</span><div className="cash-required-copy"><span>CAJA CERRADA</span><strong>Abre la caja antes de cobrar</strong><p>Tu ticket se conserva mientras registras el fondo inicial.</p></div><button type="button" className="cash-required-action" onClick={() => { setOpening(""); setCashModal("open"); }}>Abrir caja <span aria-hidden="true">→</span></button></aside>}
             <div className="payment-heading">
               <p className="payment-label">¿Cómo pagó?</p>
               <button
