@@ -7635,7 +7635,7 @@ footer > a {
 
 .access-copy,
 .team-payroll-hero {
-  background: linear-gradient(135deg, var(--primary-hover), var(--primary));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-hover) 78%, var(--background-secondary)), color-mix(in srgb, var(--primary) 72%, var(--background)));
   box-shadow: var(--shadow-glass);
 }
 .access-copy h1,
@@ -7649,6 +7649,14 @@ footer > a {
 .access-copy h1 em { color: var(--accent-soft); }
 .access-panel,
 .setup-card { background: var(--background-secondary); }
+.access-copy h1 em { font-style: normal; }
+.access-card { padding: var(--spacing-6); }
+.access-form .button {
+  background: var(--primary);
+  border-radius: var(--radius-md);
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.access-form .button:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
 .team-payroll-hero .eyebrow { color: var(--accent-soft); }
 .team-payroll-hero p:not(.eyebrow),
 .access-copy > div > p:not(.eyebrow) { color: var(--surface); }
@@ -7843,6 +7851,84 @@ footer > a {
 .calendar-event small { color: var(--primary-hover); }
 .calendar-live { background: var(--success-soft); color: var(--success); }
 .calendar-column.drop-target { background: linear-gradient(180deg, color-mix(in srgb, var(--primary-soft) 72%, transparent), transparent); box-shadow: inset 0 0 0 2px var(--primary); }
+
+/* Reservation flow: remove the legacy editorial dark/pink panels in favour of
+   a calm, readable glass composition. */
+.booking-layout {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glass);
+  overflow: hidden;
+}
+.booking-intro {
+  background: linear-gradient(145deg, var(--background-secondary), color-mix(in srgb, var(--primary-soft) 62%, var(--background)));
+  color: var(--text-heading);
+}
+.booking-intro h1,
+.booking-intro h1 em {
+  color: var(--text-heading);
+  font-family: "Jost", Arial, Helvetica, sans-serif;
+  font-style: normal;
+  font-weight: 650;
+  letter-spacing: -0.045em;
+}
+.booking-intro h1 em { color: var(--accent); }
+.booking-intro > p:not(.eyebrow) { color: var(--text-secondary); }
+.booking-note { border-color: var(--border); }
+.booking-note strong { color: var(--primary-hover); font-family: "Jost", Arial, Helvetica, sans-serif; }
+.booking-note span { color: var(--text-secondary); }
+.booking-form { background: var(--surface-glass-strong); }
+.booking-form legend,
+.slot-date {
+  color: var(--text-heading);
+  font-family: "Jost", Arial, Helvetica, sans-serif;
+  font-weight: 650;
+}
+.booking-services,
+.booking-service,
+.booking-receipt { border-color: var(--border); }
+.radio-mark { border-color: var(--border); }
+.booking-service input:checked + .radio-mark {
+  background: var(--primary);
+  border-color: var(--surface);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.booking-service b { color: var(--primary-hover); font-family: "Jost", Arial, Helvetica, sans-serif; }
+.booking-selected-summary {
+  background: var(--primary-soft);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.booking-selected-summary > div > span,
+.booking-selected-summary strong,
+.booking-selected-summary small { color: var(--text-primary); font-family: "Jost", Arial, Helvetica, sans-serif; }
+.booking-selected-summary > button { border-color: var(--border); color: var(--primary-hover); }
+.booking-selected-summary > button:hover { background: var(--surface-glass-strong); }
+.booking-progress span { border-color: var(--border); color: var(--text-secondary); }
+.booking-progress span.active { border-color: var(--primary); color: var(--primary-hover); }
+.booking-total,
+.booking-summary { background: var(--background-secondary); border-color: var(--border); color: var(--text-primary); }
+.booking-calendar {
+  background: var(--surface-glass);
+  border-color: var(--border-subtle);
+  box-shadow: var(--shadow-glass);
+  color: var(--text-primary);
+}
+.booking-calendar-heading span { color: var(--primary-hover); }
+.booking-calendar-heading strong,
+.booking-calendar-heading > em { color: var(--text-heading); font-family: "Jost", Arial, Helvetica, sans-serif; font-style: normal; font-weight: 650; }
+.booking-calendar-weekdays { color: var(--text-secondary); }
+.booking-calendar-controls button,
+.booking-calendar-days button { background: var(--surface-glass-strong); border-color: var(--border); color: var(--text-primary); }
+.booking-calendar-controls button:hover:not(:disabled),
+.booking-calendar-days button:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary-hover); }
+.booking-calendar-days button.selected,
+.slot.active,
+.slot:hover { background: var(--primary); border-color: var(--primary); color: var(--surface); box-shadow: var(--shadow-sm); }
+.booking-calendar-days button:disabled { border-color: var(--border-subtle); color: var(--text-secondary); }
+.booking-calendar-days button:focus-visible,
+.booking-calendar-controls button:focus-visible { outline-color: var(--primary-hover); }
+.slot { background: var(--surface-glass-strong); border-color: var(--border); border-radius: var(--radius-md); color: var(--text-primary); }
 @media (max-width: 800px) {
   .finance-tag-list > div:has(.finance-delete) {
     grid-template-columns: 12px minmax(0, 1fr) auto auto 105px;
