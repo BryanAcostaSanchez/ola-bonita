@@ -6626,6 +6626,45 @@ footer > a {
   color: #a45b49;
   font-size: 13px;
 }
+.compensation-default-card {
+  margin-bottom: 20px;
+}
+.compensation-default-input {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+.compensation-default-input label {
+  color: #315657;
+  display: grid;
+  font-size: 13px;
+  gap: 6px;
+  min-width: 190px;
+}
+.compensation-default-input input {
+  background: #fffaf6;
+  border: 1px solid #d6e1de;
+  border-radius: 6px;
+  color: #17494a;
+  font: inherit;
+  min-height: 42px;
+  padding: 8px 10px;
+  width: 100%;
+}
+.compensation-default-input .new-booking {
+  min-height: 42px;
+}
+@media (max-width: 520px) {
+  .compensation-default-input {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .compensation-default-input label {
+    min-width: 0;
+  }
+}
 .compensation-editor {
   border: 1px solid #e2eae7;
   border-radius: 8px;
