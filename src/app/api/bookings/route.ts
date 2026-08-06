@@ -12,13 +12,13 @@ export async function POST(request: Request) {
   const paymentOption: PaymentOption = body.paymentOption === "full" ? "full" : body.paymentOption === "none" ? "none" : "deposit";
   const admin = createAdminClient();
   const [{ data: settings }, { data: service }] = await Promise.all([
-    admin.from("business_settings").select("online_payment_options, booking_deposit_enabled, booking_deposit_percent, allow_booking_without_online_payment").limit(1).maybeSingle(),
+    admin.from("business_settings").select("online_payment_options, booking_deposit_enabled, booking_deposit_percent, allow_booking_without_online_payment, web_payments_enabled, web_payment_provider").limit(1).maybeSingle(),
     admin.from("services").select("price_cents, deposit_enabled, deposit_percent").eq("id", body.serviceId).eq("active", true).eq("online_bookable", true).maybeSingle(),
   ]);
   const options = settings?.online_payment_options ?? ["deposit"];
   const depositEnabled = service?.deposit_enabled === false ? false : (service?.deposit_enabled ?? settings?.booking_deposit_enabled ?? false);
   const depositPercent = service?.deposit_percent ?? settings?.booking_deposit_percent ?? 0;
-  const optionAllowed = paymentOption === "none" ? settings?.allow_booking_without_online_payment : options.includes(paymentOption);
+  const optionAllowed = paymentOption === "none" ? (settings?.allow_booking_without_online_payment || settings?.web_payments_enabled === false) : settings?.web_payments_enabled && settings.web_payment_provider === "mercadopago" && options.includes(paymentOption);
   if (!service || !optionAllowed || (paymentOption === "deposit" && (!depositEnabled || !depositPercent))) return NextResponse.json({ error: "Esa opción de reserva ya no está disponible. Actualiza la página e inténtalo de nuevo." }, { status: 422 });
   const supabase = await createServerClient();
   const { data, error } = await supabase.rpc("create_public_booking", { p_service_id: body.serviceId, p_specialist_id: null, p_starts_at: body.startsAt, p_full_name: body.fullName, p_phone: body.phone, p_email: typeof body.email === "string" ? body.email : null, p_notes: typeof body.notes === "string" ? body.notes : null });
