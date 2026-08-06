@@ -3144,6 +3144,27 @@ footer > a {
 .analytics-section {
   padding: 32px;
 }
+.analytics-header {
+  background: color-mix(in srgb, var(--background) 84%, transparent);
+  backdrop-filter: blur(var(--blur-md)) saturate(130%);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-left: -12px;
+  margin-right: -12px;
+  padding: 16px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+.analytics-filters {
+  background: color-mix(in srgb, var(--background) 92%, transparent);
+  backdrop-filter: blur(var(--blur-md)) saturate(130%);
+  border-bottom: 1px solid var(--border-subtle);
+  margin: 0 -12px 24px;
+  padding: 10px 12px 14px;
+  position: sticky;
+  top: 108px;
+  z-index: 29;
+}
 .net-flow-card > p {
   margin: 0 0 18px;
 }
@@ -3203,6 +3224,10 @@ footer > a {
 .net-flow-net i b { border-radius: inherit; display: block; height: 100%; }
 .net-flow-net i b.positive { background: var(--success); }
 .net-flow-net i b.negative { background: var(--danger); }
+@media (max-width: 900px) {
+  .analytics-header { margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; }
+  .analytics-filters { margin-left: -8px; margin-right: -8px; padding-left: 8px; padding-right: 8px; top: 150px; }
+}
 .analytics-grid {
   display: grid;
   gap: 16px;
