@@ -50,6 +50,7 @@ type OfflineSale = {
   customerName: string;
   customerPhone: string;
   totalCents: number;
+  payments?: { method: Method; amount_cents: number }[];
   error?: string;
 };
 type CashSummary = { opening_float_cents: number; cash_sales_cents: number; card_sales_cents: number; transfer_sales_cents: number; online_sales_cents: number; total_sales_cents: number; cash_expenses_cents: number; total_expenses_cents: number; internal_commissions_cents: number; external_commissions_cents: number; expected_cash_cents: number };
@@ -580,6 +581,19 @@ export function OperationDesk({
     writeOfflineSales(updated);
     setOfflineSales(updated);
   };
+  const queuedPayments = () => splitPayment
+    ? [
+        { method: firstSplitMethod, amount_cents: firstSplitCents },
+        { method: secondSplitMethod, amount_cents: remainingSplitCents },
+      ]
+    : null;
+  const ticketRequiresOpenCash = () =>
+    (splitPayment
+      ? firstSplitMethod === "cash" || secondSplitMethod === "cash"
+      : method === "cash") ||
+    customServices.some(
+      (service) => service.externalProvider && service.externalPaymentMethod === "cash",
+    );
   const queueOfflineSale = (kind: OfflineSale["kind"], method: Method, id = crypto.randomUUID()) => {
     storeOfflineSale({
       id,
@@ -590,6 +604,7 @@ export function OperationDesk({
       customerName,
       customerPhone,
       totalCents: total,
+      payments: kind === "manual" ? queuedPayments() ?? undefined : undefined,
     });
     clearCompletedTicket();
     setNotice(kind === "clip_review"
@@ -611,7 +626,7 @@ export function OperationDesk({
         p_payment_method: sale.method,
         p_customer_name: sale.customerName || null,
         p_customer_phone: sale.customerPhone || null,
-        p_payments: null,
+        p_payments: sale.payments ?? null,
         p_client_request_id: sale.id,
       });
       if (error) unresolved.push({ ...sale, error: friendlyError(error.message) });
@@ -686,7 +701,7 @@ export function OperationDesk({
   };
 
   const checkout = () => {
-    if (!cashSession) {
+    if (!cashSession && ticketRequiresOpenCash()) {
       setNotice("Abre caja para registrar ventas. Tu ticket se conservará mientras la abres.");
       setOpening("");
       setCashModal("open");
@@ -1316,7 +1331,7 @@ export function OperationDesk({
               onChange={(event) => setSaleNote(event.target.value)}
               placeholder="Nota de venta (opcional)"
             />
-            {!cashSession && <aside className="cash-required-notice" aria-label="Caja cerrada"><span className="cash-required-icon" aria-hidden="true">$</span><div className="cash-required-copy"><span>CAJA CERRADA</span><strong>Abre la caja antes de cobrar</strong><p>Tu ticket se conserva mientras registras el fondo inicial.</p></div><button type="button" className="cash-required-action" onClick={() => { setOpening(""); setCashModal("open"); }}>Abrir caja <span aria-hidden="true">→</span></button></aside>}
+            {!cashSession && ticketRequiresOpenCash() && <aside className="cash-required-notice" aria-label="Caja cerrada"><span className="cash-required-icon" aria-hidden="true">$</span><div className="cash-required-copy"><span>CAJA CERRADA</span><strong>Abre la caja antes de cobrar</strong><p>Tu ticket se conserva mientras registras el fondo inicial.</p></div><button type="button" className="cash-required-action" onClick={() => { setOpening(""); setCashModal("open"); }}>Abrir caja <span aria-hidden="true">→</span></button></aside>}
             <div className="payment-heading">
               <p className="payment-label">¿Cómo pagó?</p>
               <button
