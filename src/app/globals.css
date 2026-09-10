@@ -1860,6 +1860,14 @@ footer > a {
 }
 .pinpad-note strong { color: #315b56; font-size: 13px; }
 .pinpad-note span { color: #5e7772; font-size: 12px; line-height: 1.55; }
+
+.offline-sales-queue { display: grid; gap: 10px; margin: 0 0 18px; padding: 14px; border: 1px solid #e4be73; border-radius: 14px; background: #fff9ed; color: #604713; }
+.offline-sales-queue > div:first-child { display: grid; gap: 2px; }
+.offline-sales-queue span, .offline-sales-queue small { font-size: 12px; color: #775e2d; }
+.offline-sale-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid #f0d9a6; font-size: 13px; }
+.offline-sale-row > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.offline-sale-row > div small { width: 100%; text-align: right; }
+@media (max-width: 640px) { .offline-sale-row { align-items: flex-start; flex-direction: column; } .offline-sale-row > div { justify-content: flex-start; } .offline-sale-row > div small { text-align: left; } }
 .checklist {
   display: grid;
   gap: 12px 34px;

@@ -41,6 +41,17 @@ type Customer = {
 };
 type Method = "cash" | "card" | "transfer";
 type CheckoutMethod = Method | "pinpad";
+type OfflineSale = {
+  id: string;
+  createdAt: string;
+  kind: "manual" | "clip_review";
+  method: Method;
+  items: Record<string, unknown>[];
+  customerName: string;
+  customerPhone: string;
+  totalCents: number;
+  error?: string;
+};
 type CashSummary = { opening_float_cents: number; cash_sales_cents: number; card_sales_cents: number; transfer_sales_cents: number; online_sales_cents: number; total_sales_cents: number; cash_expenses_cents: number; total_expenses_cents: number; internal_commissions_cents: number; external_commissions_cents: number; expected_cash_cents: number };
 type CashCutResult = { expected_cash_cents: number; counted_cash_cents: number; variance_cents: number };
 
@@ -63,6 +74,7 @@ type PosDraft = Partial<{
   };
 }>;
 const posDraftKey = "ola-bonita:pos-draft:v2";
+const offlineSalesKey = "ola-bonita:offline-sales:v1";
 function readPosDraft(): PosDraft {
   if (typeof window === "undefined") return {};
   try {
@@ -80,6 +92,21 @@ function readPosDraft(): PosDraft {
     sessionStorage.removeItem(posDraftKey);
     return {};
   }
+}
+function readOfflineSales(): OfflineSale[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(offlineSalesKey) || "[]");
+    return Array.isArray(stored) ? stored : [];
+  } catch {
+    return [];
+  }
+}
+function writeOfflineSales(sales: OfflineSale[]) {
+  localStorage.setItem(offlineSalesKey, JSON.stringify(sales));
+}
+function isNetworkError(message: string) {
+  return /network|fetch|offline|failed to fetch|load failed/i.test(message);
 }
 
 const money = new Intl.NumberFormat("es-MX", {
@@ -320,6 +347,8 @@ export function OperationDesk({
   });
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+  const [offlineSales, setOfflineSales] = useState<OfflineSale[]>(readOfflineSales);
   useEffect(() => {
     sessionStorage.setItem(
       posDraftKey,
@@ -373,6 +402,15 @@ export function OperationDesk({
     }, 250);
     return () => window.clearTimeout(timeout);
   }, [customerSearch, supabase]);
+  useEffect(() => {
+    const refreshConnection = () => setOnline(navigator.onLine);
+    window.addEventListener("online", refreshConnection);
+    window.addEventListener("offline", refreshConnection);
+    return () => {
+      window.removeEventListener("online", refreshConnection);
+      window.removeEventListener("offline", refreshConnection);
+    };
+  }, []);
 
   const qty = (id: string) => cart[id] ?? 0;
   const categoryOf = (service: Service) =>
@@ -529,6 +567,103 @@ export function OperationDesk({
     })),
   ];
 
+  const clearCompletedTicket = () => {
+    setCart({});
+    setCustomServices([]);
+    setCustomerName("");
+    setCustomerPhone("");
+    setSaleNote("");
+    sessionStorage.removeItem(posDraftKey);
+  };
+  const storeOfflineSale = (sale: OfflineSale) => {
+    const updated = [...readOfflineSales(), sale];
+    writeOfflineSales(updated);
+    setOfflineSales(updated);
+  };
+  const queueOfflineSale = (kind: OfflineSale["kind"], method: Method, id = crypto.randomUUID()) => {
+    storeOfflineSale({
+      id,
+      createdAt: new Date().toISOString(),
+      kind,
+      method,
+      items: ticketItems(),
+      customerName,
+      customerPhone,
+      totalCents: total,
+    });
+    clearCompletedTicket();
+    setNotice(kind === "clip_review"
+      ? "Cobro Clip guardado para revisión. No se registrará como pagado hasta que confirmes el recibo o elijas otro método."
+      : "Venta guardada en este dispositivo. Se sincronizará al recuperar internet.");
+  };
+  const syncOfflineSales = async () => {
+    if (!navigator.onLine) return;
+    const current = readOfflineSales();
+    const unresolved: OfflineSale[] = [];
+    let synced = 0;
+    for (const sale of current) {
+      if (sale.kind === "clip_review") {
+        unresolved.push(sale);
+        continue;
+      }
+      const { error } = await supabase.rpc("record_pos_sale", {
+        p_items: sale.items,
+        p_payment_method: sale.method,
+        p_customer_name: sale.customerName || null,
+        p_customer_phone: sale.customerPhone || null,
+        p_payments: null,
+        p_client_request_id: sale.id,
+      });
+      if (error) unresolved.push({ ...sale, error: friendlyError(error.message) });
+      else synced += 1;
+    }
+    writeOfflineSales(unresolved);
+    setOfflineSales(unresolved);
+    if (synced) setNotice(`${synced} venta${synced === 1 ? "" : "s"} pendiente${synced === 1 ? "" : "s"} se sincronizaron.`);
+  };
+  useEffect(() => {
+    if (!online) return;
+    const timer = window.setTimeout(() => void syncOfflineSales(), 0);
+    return () => window.clearTimeout(timer);
+  // Sync is intentionally triggered only by connection changes, not every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online]);
+  const resolveClipReview = (sale: OfflineSale, method: Method) => {
+    const updated = readOfflineSales().map((item) => item.id === sale.id ? { ...item, kind: "manual" as const, method, error: undefined } : item);
+    writeOfflineSales(updated);
+    setOfflineSales(updated);
+    setNotice("Cobro marcado para sincronizar como pago manual. Confirma que el recibo de Clip existe antes de continuar.");
+    if (navigator.onLine) void syncOfflineSales();
+  };
+  const submitManualSale = async () => {
+    const clientRequestId = crypto.randomUUID();
+    setBusy(true);
+    setNotice(null);
+    const { error } = await supabase.rpc("record_pos_sale", {
+      p_items: ticketItems(),
+      p_payment_method: method as Method,
+      p_customer_name: customerName || null,
+      p_customer_phone: customerPhone || null,
+      p_payments: splitPayment ? [
+        { method: firstSplitMethod, amount_cents: firstSplitCents },
+        { method: secondSplitMethod, amount_cents: remainingSplitCents },
+      ] : null,
+      p_client_request_id: clientRequestId,
+    });
+    setBusy(false);
+    if (!error) {
+      clearCompletedTicket();
+      setNotice("Venta registrada.");
+      window.setTimeout(() => window.location.reload(), 500);
+      return;
+    }
+    if (isNetworkError(error.message)) {
+      queueOfflineSale("manual", splitPayment ? firstSplitMethod : method as Method, clientRequestId);
+      return;
+    }
+    setNotice(friendlyError(error.message));
+  };
+
   const startPinpadCheckout = async () => {
     setBusy(true);
     setNotice(null);
@@ -558,29 +693,18 @@ export function OperationDesk({
       return;
     }
     if (method === "pinpad") {
+      if (!navigator.onLine) {
+        queueOfflineSale("clip_review", "card");
+        return;
+      }
       void startPinpadCheckout();
       return;
     }
-    return run(
-      () =>
-        supabase.rpc("record_pos_sale", {
-          p_items: ticketItems(),
-          p_payment_method: splitPayment ? firstSplitMethod : method,
-          p_customer_name: customerName || null,
-          p_customer_phone: customerPhone || null,
-          p_payments: splitPayment
-            ? [
-                { method: firstSplitMethod, amount_cents: firstSplitCents },
-                {
-                  method: secondSplitMethod,
-                  amount_cents: remainingSplitCents,
-                },
-              ]
-            : null,
-        }),
-      "Venta registrada.",
-      true,
-    );
+    if (!navigator.onLine) {
+      queueOfflineSale("manual", splitPayment ? firstSplitMethod : method as Method);
+      return;
+    }
+    void submitManualSale();
   };
   const openCash = () =>
     run(
@@ -697,6 +821,15 @@ export function OperationDesk({
           </Link>
         </header>
         {notice && <p className="operation-notice">{notice}</p>}
+        {!online && <p className="operation-notice">Sin internet: las ventas manuales se guardarán en este dispositivo para sincronizarse después.</p>}
+        {offlineSales.length > 0 && <section className="offline-sales-queue" aria-live="polite">
+          <div><strong>{offlineSales.length} venta{offlineSales.length === 1 ? "" : "s"} pendiente{offlineSales.length === 1 ? "" : "s"}</strong><span>Se guardan sólo en este dispositivo hasta sincronizarse.</span></div>
+          {online && <button type="button" className="secondary-operation" onClick={() => void syncOfflineSales()} disabled={busy}>Sincronizar ahora</button>}
+          {offlineSales.map((sale) => <div className="offline-sale-row" key={sale.id}>
+            <span>{new Date(sale.createdAt).toLocaleString("es-MX")} · {money.format(sale.totalCents / 100)}</span>
+            {sale.kind === "clip_review" ? <div><strong>Clip por verificar</strong><small>Confirma el recibo físico antes de convertirlo en venta.</small><button type="button" className="secondary-operation" onClick={() => resolveClipReview(sale, "card")}>Confirmar como tarjeta manual</button></div> : <small>{sale.error || `Pago: ${sale.method === "cash" ? "efectivo" : sale.method === "transfer" ? "transferencia" : "tarjeta"}`}</small>}
+          </div>)}
+        </section>}
         <div className="operations-grid touch-pos-grid">
           <section className="operation-card pos-catalog">
             <div className="section-top">
