@@ -230,6 +230,8 @@ a {
   max-width: 1280px;
   padding: 25px 42px;
   position: relative;
+  /* Keep the expanded mobile menu above the hero's layered artwork. */
+  z-index: 100;
 }
 .brand {
   color: var(--ink);
@@ -1882,12 +1884,23 @@ footer > a {
   margin-right: 7px;
 }
 .nav-menu-button {
-  background: transparent;
-  border: 0;
+  align-items: center;
+  background: var(--surface, #fff);
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  border-radius: 999px;
   color: var(--ink);
   cursor: pointer;
   display: block;
+  justify-content: center;
+  line-height: 0;
   padding: 6px;
+}
+.nav-menu-button:hover {
+  background: color-mix(in srgb, var(--ink) 8%, var(--surface, #fff));
+}
+.nav-menu-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--rose) 45%, transparent);
+  outline-offset: 3px;
 }
 .nav-menu-button svg {
   display: block;
