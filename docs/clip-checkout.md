@@ -1,10 +1,10 @@
-# Clip Checkout: configuración segura
+# Clip: configuración segura de cobros
 
 Ola Bonita usa **Checkout Redireccionado de Clip** para todos los anticipos y pagos completos de reservas web y de la cabina. La clienta paga en la página hospedada por Clip; Ola Bonita no recibe ni guarda datos de tarjeta.
 
 ## Terminal física (Clip PinPad)
 
-La integración actual cubre Checkout para pagos en línea. La sección **Configuración → Pagos y anticipos → Prepara Clip PinPad** organiza la preparación de una terminal física; no habilita cobros presenciales todavía.
+La integración de PinPad está habilitada en el POS. La sección **Configuración → Pagos y anticipos → Configura Clip PinPad** guarda el número de serie y la preparación de la terminal. Al elegir **Terminal Clip** en una venta, la aplicación crea una intención de pago desde el backend; sólo registra la venta cuando Clip la confirma.
 
 Antes de probar, la dueña debe:
 
@@ -14,7 +14,14 @@ Antes de probar, la dueña debe:
 4. Solicitar a `developers@clip.mx` la habilitación de PinPad y la instalación de la aplicación Clip PinPad en el lector.
 5. Usar credenciales de **Producción**. PinPad no dispone de ambiente de pruebas: requiere lector compatible y conexión Wi‑Fi estable.
 
-Cuando Clip habilite PinPad, el POS enviará el importe al lector identificado por ese número de serie y sólo registrará venta, inventario, comisión y caja al recibir una confirmación de pago. Un fallo de señal nunca debe marcar un cobro como completado.
+Cuando Clip habilite PinPad, el POS envía el importe al lector identificado por ese número de serie y sólo registra venta, inventario, comisión y caja al recibir una confirmación de pago. Un fallo de señal nunca debe marcar un cobro como completado.
+
+## Si falla internet durante un cobro de PinPad
+
+- Si el POS no puede comunicarse con el backend antes de crear la intención, no se envía ningún cobro ni se registra una venta.
+- Si Clip informa que la terminal está apagada, sin red o con la app PinPad cerrada, el intento falla y el ticket no se cobra ni registra.
+- Si la terminal procesa el pago pero el navegador, webhook o backend se desconecta después, la venta queda pendiente: no altera caja, inventario ni comisiones. El cron de Vercel consulta Clip cada 10 minutos y la completa al confirmar el pago.
+- Mientras un cobro esté pendiente, nunca se debe volver a cobrar el mismo ticket. Espera la confirmación o consulta el estado en Clip antes de crear un nuevo intento.
 
 ## Credenciales que necesitas
 
@@ -66,5 +73,6 @@ Las clientas regresan a `www.olabonita.shop` después del pago; la confirmación
 3. Verifica que ambas abran una URL de `payclip.com`.
 4. Completa la prueba y revisa que la reserva cambie de `pending` a `confirmed`, y de `pending` a `deposit_paid` o `paid`.
 5. Repite con las credenciales de Producción antes de anunciar pagos en línea.
+6. Para PinPad, con una terminal compatible conectada y activa, cobra una venta pequeña desde **Ventas y caja → Terminal Clip**. Confirma que la venta aparece sólo después de aprobarse en la terminal y repite una prueba simulando pérdida de red para comprobar la conciliación pendiente.
 
 Si cambias de entorno o rotas claves, vuelve a guardarlas desde Configuración. Las claves anteriores dejan de ser válidas en cuanto las revoques en Clip.
