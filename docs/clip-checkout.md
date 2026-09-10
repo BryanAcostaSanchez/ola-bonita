@@ -23,6 +23,12 @@ Cuando Clip habilite PinPad, el POS envía el importe al lector identificado por
 - Si la terminal procesa el pago pero el navegador, webhook o backend se desconecta después, la venta queda pendiente: no altera caja, inventario ni comisiones. El cron de Vercel consulta Clip cada 10 minutos y la completa al confirmar el pago.
 - Mientras un cobro esté pendiente, nunca se debe volver a cobrar el mismo ticket. Espera la confirmación o consulta el estado en Clip antes de crear un nuevo intento.
 
+## Ventas sin conexión
+
+En **Ventas y caja**, una venta de efectivo, transferencia o tarjeta manual puede guardarse sin conexión en una bandeja local del dispositivo. Cuando vuelve internet, se sincroniza automáticamente con el mismo identificador de venta, por lo que un reintento no duplica el registro.
+
+Si se eligió **Terminal Clip** mientras no había red, el ticket queda como **Clip por verificar**. No se sube como pagado automáticamente: la persona responsable debe comprobar el recibo físico y elegir **Confirmar como tarjeta manual**. Así se evita inventar una confirmación de Clip que nunca pudo crear una intención remota.
+
 ## Credenciales que necesitas
 
 En el [Panel de Desarrollador de Clip](https://dashboard.clip.mx/), crea una credencial para el ambiente que usarás. Clip entrega dos valores:
