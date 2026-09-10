@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react";
 import { defaultPermissionsByRole, PERMISSION_GROUPS, type Permission } from "@/lib/permissions";
 
-type Role = "manager" | "reception" | "specialist";
+type Role = "manager" | "specialist";
 type Template = { role: Role; permissions: Permission[] };
-const roles: Role[] = ["specialist", "reception", "manager"];
+const roles: Role[] = ["specialist", "manager"];
 const labels: Record<Role, { title: string; detail: string }> = {
-  specialist: { title: "Especialista", detail: "Atiende y consulta su agenda" },
-  reception: { title: "Recepción", detail: "Coordina agenda y cobros" },
-  manager: { title: "Gerencia", detail: "Opera y configura el negocio" },
+  specialist: { title: "Especialista", detail: "Agenda y ventas" },
+  manager: { title: "Gerencia", detail: "Control total del negocio" },
 };
 const defaults = Object.fromEntries(roles.map((role) => [role, defaultPermissionsByRole[role]])) as Record<Role, Permission[]>;
 
@@ -23,9 +22,9 @@ export function RolePermissionManager() {
   const toggle = (role: Role, permission: Permission) => setTemplates((current) => ({ ...current, [role]: current[role].includes(permission) ? current[role].filter((item) => item !== permission) : [...current[role], permission] }));
   async function saveAll() {
     setSaving(true); setMessage("");
-    const results = await Promise.all(roles.map(async (role) => fetch("/api/role-permissions", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role, permissions: templates[role] }) })));
-    setSaving(false); setMessage(results.every((response) => response.ok) ? "Plantillas de permisos guardadas. Las nuevas invitaciones usarán estos accesos." : "No pudimos guardar todas las plantillas. Inténtalo de nuevo.");
+    const results = await Promise.all(roles.map((role) => fetch("/api/role-permissions", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role, permissions: templates[role] }) })));
+    setSaving(false); setMessage(results.every((response) => response.ok) ? "Permisos por rol actualizados. Aplican a las cuentas que usan la plantilla del rol." : "No pudimos guardar todos los permisos. Inténtalo de nuevo.");
   }
   if (allowed !== true) return null;
-  return <section className="settings-card role-permission-manager"><div className="section-top"><div><p className="eyebrow">ACCESOS POR ROL</p><h2>Define qué puede hacer cada rol</h2><p>Las personas heredan esta plantilla al ser invitadas. Administración mantiene acceso total.</p></div><button type="button" className="new-booking" disabled={saving} onClick={saveAll}>{saving ? "Guardando…" : "Guardar permisos"}</button></div><div className="role-permission-matrix"><div className="role-matrix-header"><span>Permiso</span>{roles.map((role) => <span key={role}><strong>{labels[role].title}</strong><small>{labels[role].detail}</small></span>)}</div>{PERMISSION_GROUPS.map((group) => <div className="role-matrix-group" key={group.label}><strong>{group.label}</strong>{group.permissions.map((permission) => <div className="role-matrix-row" key={permission.id}><span>{permission.label}</span>{roles.map((role) => <label key={role} title={`${labels[role].title}: ${permission.label}`}><input type="checkbox" checked={templates[role].includes(permission.id)} onChange={() => toggle(role, permission.id)}/><i aria-hidden="true"/></label>)}</div>)}</div>)}</div>{message && <p className="settings-message" role="status">{message}</p>}</section>;
+  return <section className="settings-card role-permission-manager"><div className="section-top"><div><p className="eyebrow">ACCESOS POR ROL</p><h2>Permisos de Gerencia y Especialista</h2><p>Personaliza la plantilla de cada rol. Administración conserva acceso total.</p></div><button type="button" className="new-booking" disabled={saving} onClick={saveAll}>{saving ? "Guardando…" : "Guardar permisos"}</button></div><div className="role-permission-matrix"><div className="role-matrix-header"><span>Permiso</span>{roles.map((role) => <span key={role}><strong>{labels[role].title}</strong><small>{labels[role].detail}</small></span>)}</div>{PERMISSION_GROUPS.map((group) => <div className="role-matrix-group" key={group.label}><strong>{group.label}</strong>{group.permissions.map((permission) => <div className="role-matrix-row" key={permission.id}><span>{permission.label}</span>{roles.map((role) => <label key={role} title={`${labels[role].title}: ${permission.label}`}><input type="checkbox" checked={templates[role].includes(permission.id)} onChange={() => toggle(role, permission.id)}/><i aria-hidden="true"/></label>)}</div>)}</div>)}</div>{message && <p className="settings-message" role="status">{message}</p>}</section>;
 }

@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { RolePermissionManager } from "../configuracion/role-permission-manager";
 
-type Role = "owner" | "manager" | "reception" | "specialist";
+type Role = "owner" | "manager" | "specialist";
 type Member = {
   id: string;
   full_name: string;
@@ -51,7 +51,7 @@ type ExternalPayment = {
   payment_method: string;
   created_at: string;
 };
-type ConfigurableRole = Exclude<Role, "owner">;
+type ConfigurableRole = "manager" | "specialist";
 
 const days = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const defaultHours = [
@@ -432,7 +432,6 @@ export function TeamManager({
                 }}
               >
                 <option value="specialist">Especialista</option>
-                <option value="reception">Recepción</option>
                 <option value="manager">Gerencia</option>
               </select>
               <button className="new-booking" disabled={busy}>

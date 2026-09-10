@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 import { isPermission, type Permission } from "@/lib/permissions";
 
-const roles = ["manager", "reception", "specialist"] as const;
+const roles = ["manager", "specialist"] as const;
 type StaffRole = (typeof roles)[number];
 
 export async function POST(request: Request) {

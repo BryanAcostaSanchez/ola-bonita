@@ -14,10 +14,9 @@ export const PERMISSION_GROUPS: Array<{ label: string; permissions: Array<{ id: 
   { label: "Equipo", permissions: [{ id: "team.manage", label: "Disponibilidad" }, { id: "team.compensation", label: "Pagos al equipo" }, { id: "commissions.manage", label: "Ajustar comisiones" }] },
 ];
 
-export const defaultPermissionsByRole: Record<"manager" | "reception" | "specialist", Permission[]> = {
+export const defaultPermissionsByRole: Record<"manager" | "specialist", Permission[]> = {
   manager: PERMISSIONS.slice(),
-  reception: ["agenda.view", "agenda.manage", "bookings.assign", "bookings.complete", "operations.pos", "operations.cash", "operations.expenses", "analytics.view", "settings.agenda", "settings.catalog", "settings.finance", "settings.payments"],
-  specialist: ["agenda.view"],
+  specialist: ["agenda.view", "agenda.manage", "bookings.assign", "bookings.complete", "operations.pos"],
 };
 
 export function isPermission(value: unknown): value is Permission {

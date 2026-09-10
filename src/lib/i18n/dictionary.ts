@@ -66,9 +66,9 @@ export const dictionary = {
       viewAll: "Ver notas",
       readStory: "Leer nota",
       items: [
-        { tag: "Rituales", title: "Cómo convertir diez minutos en una pausa de verdad" },
-        { tag: "Piel", title: "Tu rutina de noche como un gesto de cariño" },
-        { tag: "Bienestar", title: "La belleza de hacer espacio para respirar frente al mar" },
+        { tag: "Bienestar", title: "El descanso también es un tratamiento de belleza" },
+        { tag: "Bienestar", title: "Porque tú también eres importante" },
+        { tag: "Bienestar", title: "La belleza comienza cuando te sientes bien" },
       ],
     },
     bookingBand: {
@@ -174,7 +174,7 @@ export const dictionary = {
       titlePrefix: "Estamos confirmando",
       titleMiddle: "tu",
       titleEm: "reserva.",
-      text: "Mercado Pago nos notificará el resultado de tu pago en unos momentos. Conserva tu código de reserva.",
+      text: "Clip nos notificará el resultado de tu pago en unos momentos. Conserva tu código de reserva.",
       backHome: "Volver al inicio",
     },
     cabin: {
@@ -198,7 +198,7 @@ export const dictionary = {
       phonePlaceholder: "Tu teléfono",
       email: "Correo (opcional)",
       emailPlaceholder: "correo@ejemplo.com",
-      depositNote: (n: number) => `Al confirmar pagarás un apartado de $${n} MXN por Mercado Pago.`,
+      depositNote: (n: number) => `Al confirmar pagarás un apartado de $${n} MXN por Clip.`,
       continueToPay: "Continuar a pago",
       confirmBooking: "Confirmar reserva",
       bookingBusy: "Reservando…",
@@ -273,9 +273,9 @@ export const dictionary = {
       viewAll: "View notes",
       readStory: "Read note",
       items: [
-        { tag: "Rituals", title: "How to turn ten minutes into a real pause" },
-        { tag: "Skin", title: "Your nighttime routine as an act of self-care" },
-        { tag: "Wellness", title: "The beauty of making space to breathe by the sea" },
+        { tag: "Wellness", title: "Rest is also a beauty treatment" },
+        { tag: "Wellness", title: "Because you matter too" },
+        { tag: "Wellness", title: "Beauty begins when you feel good" },
       ],
     },
     bookingBand: {
@@ -381,7 +381,7 @@ export const dictionary = {
       titlePrefix: "We're confirming",
       titleMiddle: "your",
       titleEm: "booking.",
-      text: "Mercado Pago will notify us of your payment result shortly. Keep your booking code.",
+      text: "Clip will notify us of your payment result shortly. Keep your booking code.",
       backHome: "Back to home",
     },
     cabin: {
@@ -405,7 +405,7 @@ export const dictionary = {
       phonePlaceholder: "Your phone",
       email: "Email (optional)",
       emailPlaceholder: "email@example.com",
-      depositNote: (n: number) => `On confirming, you'll pay a $${n} MXN deposit via Mercado Pago.`,
+      depositNote: (n: number) => `On confirming, you'll pay a $${n} MXN deposit via Clip.`,
       continueToPay: "Continue to payment",
       confirmBooking: "Confirm booking",
       bookingBusy: "Booking…",

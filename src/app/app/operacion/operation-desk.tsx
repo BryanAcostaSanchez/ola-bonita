@@ -40,6 +40,7 @@ type Customer = {
   email: string | null;
 };
 type Method = "cash" | "card" | "transfer";
+type CheckoutMethod = Method | "pinpad";
 type CashSummary = { opening_float_cents: number; cash_sales_cents: number; card_sales_cents: number; transfer_sales_cents: number; online_sales_cents: number; total_sales_cents: number; cash_expenses_cents: number; total_expenses_cents: number; internal_commissions_cents: number; external_commissions_cents: number; expected_cash_cents: number };
 type CashCutResult = { expected_cash_cents: number; counted_cash_cents: number; variance_cents: number };
 
@@ -47,7 +48,7 @@ type PosDraft = Partial<{
   cart: Record<string, number>;
   customServices: CustomService[];
   selectedCategoryId: string | null;
-  method: Method;
+  method: CheckoutMethod;
   splitPayment: boolean;
   firstSplitMethod: Method;
   secondSplitMethod: Method;
@@ -130,19 +131,22 @@ function friendlyError(message: string) {
 function Methods({
   value,
   change,
+  showPinpad = false,
 }: {
-  value: Method;
-  change: (method: Method) => void;
+  value: CheckoutMethod;
+  change: (method: CheckoutMethod) => void;
+  showPinpad?: boolean;
 }) {
-  const labels: Record<Method, string> = {
+  const labels: Record<CheckoutMethod, string> = {
     cash: "Efectivo",
     card: "Tarjeta",
     transfer: "Transferencia",
+    pinpad: "Terminal Clip",
   };
 
   return (
     <div className="payment-methods" aria-label="Método de pago">
-      {(Object.keys(labels) as Method[]).map((method) => (
+      {(Object.keys(labels) as CheckoutMethod[]).filter((method) => showPinpad || method !== "pinpad").map((method) => (
         <button
           type="button"
           className={value === method ? "selected" : ""}
@@ -267,7 +271,7 @@ export function OperationDesk({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     () => initialDraft.selectedCategoryId ?? null,
   );
-  const [method, setMethod] = useState<Method>(
+  const [method, setMethod] = useState<CheckoutMethod>(
     () => initialDraft.method ?? "card",
   );
   const [splitPayment, setSplitPayment] = useState(
@@ -502,6 +506,50 @@ export function OperationDesk({
     window.setTimeout(() => window.location.reload(), 500);
   };
 
+  const ticketItems = () => [
+    ...services
+      .filter((service) => qty(service.id))
+      .map((service) => ({
+        service_id: service.id,
+        quantity: qty(service.id),
+        sale_note: saleNote.trim() || null,
+      })),
+    ...customServices.map((service) => ({
+      description: service.description.trim(),
+      quantity: 1,
+      unit_price_cents: cents(service.amount),
+      commission_percent: Number(
+        (service.commissionPercent ?? String(defaultCommissionPercent)).replace(",", ".") || 0,
+      ),
+      specialist_id: service.externalProvider ? null : service.specialistId || null,
+      external_provider_name: service.externalProvider ? service.externalProviderName.trim() : null,
+      external_payment_method: service.externalProvider ? service.externalPaymentMethod : null,
+      note: service.note.trim() || null,
+      sale_note: saleNote.trim() || null,
+    })),
+  ];
+
+  const startPinpadCheckout = async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/pos/pinpad", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: ticketItems(), customerName, customerPhone }),
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(result.error || "No pudimos enviar el cobro a la terminal.");
+      sessionStorage.removeItem(posDraftKey);
+      setNotice("Cobro enviado a la Terminal Clip. La venta se registrará sólo al aprobarse el pago.");
+      window.setTimeout(() => window.location.reload(), 1200);
+    } catch (cause) {
+      setNotice(cause instanceof Error ? cause.message : "No pudimos enviar el cobro a la terminal.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const checkout = () => {
     if (!cashSession) {
       setNotice("Abre caja para registrar ventas. Tu ticket se conservará mientras la abres.");
@@ -509,39 +557,14 @@ export function OperationDesk({
       setCashModal("open");
       return;
     }
+    if (method === "pinpad") {
+      void startPinpadCheckout();
+      return;
+    }
     return run(
       () =>
         supabase.rpc("record_pos_sale", {
-          p_items: [
-            ...services
-              .filter((service) => qty(service.id))
-              .map((service) => ({
-                service_id: service.id,
-                quantity: qty(service.id),
-                sale_note: saleNote.trim() || null,
-              })),
-            ...customServices.map((service) => ({
-              description: service.description.trim(),
-              quantity: 1,
-              unit_price_cents: cents(service.amount),
-              commission_percent: Number(
-                (
-                  service.commissionPercent ?? String(defaultCommissionPercent)
-                ).replace(",", ".") || 0,
-              ),
-              specialist_id: service.externalProvider
-                ? null
-                : service.specialistId || null,
-              external_provider_name: service.externalProvider
-                ? service.externalProviderName.trim()
-                : null,
-              external_payment_method: service.externalProvider
-                ? service.externalPaymentMethod
-                : null,
-              note: service.note.trim() || null,
-              sale_note: saleNote.trim() || null,
-            })),
-          ],
+          p_items: ticketItems(),
           p_payment_method: splitPayment ? firstSplitMethod : method,
           p_customer_name: customerName || null,
           p_customer_phone: customerPhone || null,
@@ -1177,7 +1200,7 @@ export function OperationDesk({
               </button>
             </div>
             {!splitPayment ? (
-              <Methods value={method} change={setMethod} />
+              <Methods value={method} change={setMethod} showPinpad />
             ) : (
               <div className="split-payment">
                 <div>
@@ -1360,7 +1383,7 @@ export function OperationDesk({
               <Methods
                 value={expense.method}
                 change={(selectedMethod) =>
-                  setExpense({ ...expense, method: selectedMethod })
+                  setExpense({ ...expense, method: selectedMethod as Method })
                 }
               />
               <button

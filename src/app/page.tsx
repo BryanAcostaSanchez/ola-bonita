@@ -100,10 +100,14 @@ export default async function Home() {
         <div className="journal-heading"><div><p className="eyebrow">{t.journal.eyebrow}</p><h2>{t.journal.titleLine1}<br /><em>{t.journal.titleEm}</em></h2></div><a href="#journal">{t.journal.viewAll} <span>→</span></a></div>
         <div className="article-grid">{t.journal.items.map((article, index) => (
           <article key={article.title}>
-            <div className={`article-art article-art-${index}`}></div>
+            <div className={`article-art article-art-${index}`}>
+              {index === 0 && <Image src="/journal/el-descanso-tambien-es-un-tratamiento-de-belleza.png" alt="Descansa frente al mar" fill sizes="(max-width: 620px) 100vw, 33vw" className="article-art-image" />}
+              {index === 1 && <Image src="/journal/porque-tu-tambien-eres-importante.png" alt="Porque tú también eres importante" fill sizes="(max-width: 620px) 100vw, 33vw" className="article-art-image" />}
+              {index === 2 && <Image src="/journal/la-belleza-no-depende-del-makeup.png" alt="La belleza no depende del maquillaje" fill sizes="(max-width: 620px) 100vw, 33vw" className="article-art-image" />}
+            </div>
             <p>{article.tag}</p>
             <h3>{article.title}</h3>
-            <a href="#journal">{t.journal.readStory} <span>→</span></a>
+            <Link className="article-read-link" href={index === 0 ? "/journal/el-descanso-tambien-es-un-tratamiento-de-belleza" : index === 1 ? "/journal/porque-tu-tambien-eres-importante" : "/journal/la-belleza-comienza-cuando-te-sientes-bien"}><span>{t.journal.readStory}</span><b aria-hidden="true">→</b></Link>
           </article>
         ))}</div>
       </section>

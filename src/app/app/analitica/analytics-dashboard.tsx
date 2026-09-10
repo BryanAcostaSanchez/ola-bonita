@@ -17,7 +17,7 @@ const dateKey = (value:string|Date) => new Intl.DateTimeFormat("en-CA", { timeZo
 const compactDate = (date:Date) => date.toISOString().slice(0, 10);
 const sum = <T,>(rows:T[], value:(row:T)=>number) => rows.reduce((total, row) => total + value(row), 0);
 const daysBetween = (from:Date, to:Date) => Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000) + 1);
-const paymentName:Record<string,string> = { cash:"Efectivo", card:"Tarjeta", transfer:"Transferencia", online:"Mercado Pago" };
+const paymentName:Record<string,string> = { cash:"Efectivo", card:"Tarjeta", transfer:"Transferencia", online:"Clip" };
 const sourceName:Record<string,string> = { web:"Sitio web", pos:"POS", phone:"Teléfono", walk_in:"Walk-in" };
 
 function resolveRange(value:DateRangeFilterValue):Range {
