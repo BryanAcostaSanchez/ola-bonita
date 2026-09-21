@@ -41,7 +41,7 @@ export default async function OperationPage() {
       .select("specialist_id,commission_percent"),
     supabase
       .from("business_settings")
-      .select("default_commission_percent")
+      .select("default_commission_percent, pos_payment_methods, pos_payment_method_providers")
       .limit(1)
       .maybeSingle(),
     supabase
@@ -78,6 +78,13 @@ export default async function OperationPage() {
       row.commission_percent,
     ]),
   );
+  // Which methods exist, and which of them send the amount to a physical
+  // terminal, are settings: renaming "Tarjeta" never changes either.
+  const allMethods = ["cash", "card", "transfer"] as const;
+  const enabled = Array.isArray(settings?.pos_payment_methods) ? settings.pos_payment_methods : allMethods;
+  const enabledMethods = allMethods.filter((method) => enabled.includes(method));
+  const providers = (settings?.pos_payment_method_providers ?? {}) as Record<string, string | null>;
+  const terminalMethods = enabledMethods.filter((method) => Boolean(providers[method]));
   return (
     <OperationDesk
       services={services ?? []}
@@ -90,6 +97,8 @@ export default async function OperationPage() {
       expenseCategories={expenseCategories ?? []}
       expenseTags={expenseTags ?? []}
       defaultCommissionPercent={settings?.default_commission_percent ?? 0}
+      enabledMethods={enabledMethods}
+      terminalMethods={terminalMethods}
     />
   );
 }

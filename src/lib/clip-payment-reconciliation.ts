@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { ClipPaymentLink, ClipPinpadPayment } from "@/lib/clip";
+import { readTerminalChargeState, type ClipPaymentLink, type ClipPinpadPayment } from "@/lib/clip";
 
 type ReconciliationResult = "completed" | "failed" | "pending" | "requires_review" | "ignored";
 
@@ -73,29 +73,61 @@ export async function reconcileClipPayment(payment: ClipPaymentLink): Promise<Re
   return completed ? "completed" : failed ? "failed" : "pending";
 }
 
-export async function reconcileClipPinpadPayment(payment: ClipPinpadPayment): Promise<ReconciliationResult> {
-  const admin = createAdminClient();
-  const amountCents = Math.round(Number(payment.amount_paid ?? payment.amount) * 100);
-  if (!Number.isFinite(amountCents) || amountCents <= 0) return "ignored";
-  const { data: attempt } = await admin
-    .from("clip_pinpad_attempts")
-    .select("total_cents,status")
-    .eq("pinpad_request_id", payment.pinpad_request_id)
-    .maybeSingle();
-  if (!attempt || attempt.total_cents !== amountCents) return "ignored";
+export type TerminalReconciliation = { result: ReconciliationResult; saleId?: string | null };
 
-  const completed = ["COMPLETED", "APPROVED"].includes(payment.status);
-  const failed = ["REJECTED", "CANCELED", "CANCELLED", "FAILED", "EXPIRED"].includes(payment.status);
-  if (completed) {
-    const { error } = await admin.rpc("finalize_clip_pinpad_attempt", {
-      p_pinpad_request_id: payment.pinpad_request_id,
+// Clip's webhook carries no state and no amount, so every path here reads the
+// charge back from Clip first. A sale is written only when Clip says the card
+// was approved for exactly the amount the terminal was asked to collect.
+export async function reconcileClipTerminalPayment(payment: ClipPinpadPayment): Promise<TerminalReconciliation> {
+  const admin = createAdminClient();
+  const state = readTerminalChargeState(payment.status);
+  const { data: intent } = await admin
+    .from("terminal_payment_intents")
+    .select("id, amount_cents, state, sale_id")
+    .eq("provider_payment_id", payment.pinpad_request_id)
+    .maybeSingle();
+  if (!intent) return { result: "ignored" };
+  if (intent.state === "completed") return { result: "completed", saleId: intent.sale_id };
+
+  if (state === "approved") {
+    const amountCents = Math.round(Number(payment.amount_paid ?? payment.amount) * 100);
+    if (!Number.isFinite(amountCents) || amountCents !== intent.amount_cents) {
+      await admin.rpc("mark_terminal_payment_intent", {
+        p_provider_payment_id: payment.pinpad_request_id,
+        p_state: "requires_review",
+        p_provider_status: payment.status,
+        p_error_code: "AMOUNT_MISMATCH",
+      });
+      return { result: "requires_review" };
+    }
+    const { data, error } = await admin.rpc("finalize_terminal_payment_intent", {
+      p_provider_payment_id: payment.pinpad_request_id,
       p_provider_reference: payment.receipt_no ?? null,
+      p_provider_status: payment.status,
     });
-    return error ? "requires_review" : "completed";
+    if (error) {
+      // The card was charged; the ticket could not be written. Park it for a
+      // person instead of retrying blindly or losing the payment.
+      await admin.rpc("mark_terminal_payment_intent", {
+        p_provider_payment_id: payment.pinpad_request_id,
+        p_state: "requires_review",
+        p_provider_status: payment.status,
+        p_error_code: "SALE_NOT_RECORDED",
+      });
+      return { result: "requires_review" };
+    }
+    return { result: "completed", saleId: (data as { sale_id: string }[] | null)?.[0]?.sale_id ?? null };
   }
-  if (failed) {
-    await admin.rpc("fail_clip_pinpad_payment", { p_pinpad_request_id: payment.pinpad_request_id });
-    return "failed";
+
+  if (state === "rejected" || state === "cancelled") {
+    await admin.rpc("mark_terminal_payment_intent", {
+      p_provider_payment_id: payment.pinpad_request_id,
+      p_state: state === "cancelled" ? "cancelled" : "failed",
+      p_provider_status: payment.status,
+      p_error_code: null,
+    });
+    return { result: "failed" };
   }
-  return "pending";
+
+  return { result: "pending" };
 }
