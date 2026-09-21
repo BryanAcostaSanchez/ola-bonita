@@ -30,5 +30,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/app/:path*"],
+  // The POS calls these from a tab that may have been open for hours, so the
+  // session is refreshed on its API calls too, not only on page loads.
+  matcher: ["/", "/app/:path*", "/api/pos/:path*"],
 };

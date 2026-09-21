@@ -114,6 +114,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
   const [
     { data: settings },
     { data: integration },
+    { data: terminals },
     { data: categories },
     { data: services },
     { data: products },
@@ -138,7 +139,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
     supabase
       .from("business_settings")
       .select(
-        "id, business_name, timezone, currency, booking_lead_time_minutes, booking_deposit_enabled, booking_deposit_percent, payment_link_expires_minutes, allow_offline_checkout, allow_booking_without_online_payment, web_payments_enabled, web_payment_provider, pos_payment_methods, slot_interval_minutes, web_booking_capacity, default_commission_percent, no_show_deposit_policy, no_show_reschedule_window_days, online_payment_options, clip_pinpad_reader_serial, clip_pinpad_setup_status",
+        "id, business_name, timezone, currency, booking_lead_time_minutes, booking_deposit_enabled, booking_deposit_percent, payment_link_expires_minutes, allow_offline_checkout, allow_booking_without_online_payment, web_payments_enabled, web_payment_provider, pos_payment_methods, slot_interval_minutes, web_booking_capacity, default_commission_percent, no_show_deposit_policy, no_show_reschedule_window_days, online_payment_options, pos_payment_method_providers",
       )
       .limit(1)
       .maybeSingle(),
@@ -147,6 +148,10 @@ export async function SettingsPageContent({ section }: { section: string }) {
       .select("public_key, mode, configured_at")
       .eq("provider", "clip")
       .maybeSingle(),
+    supabase
+      .from("payment_terminals")
+      .select("id, provider, device_id, label, active, setup_status, last_seen_state, last_seen_at")
+      .order("created_at", { ascending: true }),
     supabase
       .from("service_categories")
       .select("id, name, slug, active, sort_order")
@@ -295,7 +300,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
         />
       )}{" "}
       {activeSection === "pagos" && (
-        <><PaymentSettings settings={settings} integration={integration} /><PaymentProviderSetup settings={settings} /><OnlinePaymentOptions settings={settings} /><UnpaidBookingOption settings={settings} /></>
+        <><PaymentSettings settings={settings} integration={integration} terminals={terminals ?? []} /><PaymentProviderSetup settings={settings} /><OnlinePaymentOptions settings={settings} /><UnpaidBookingOption settings={settings} /></>
       )}{" "}
       {activeSection === "catalogo" && (
         <CatalogManager

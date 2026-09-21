@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { getClipPaymentLink, getClipPinpadPayment } from "@/lib/clip";
-import { reconcileClipPayment, reconcileClipPinpadPayment } from "@/lib/clip-payment-reconciliation";
+import { reconcileClipPayment, reconcileClipTerminalPayment } from "@/lib/clip-payment-reconciliation";
 
 export const runtime = "nodejs";
 
-type ClipWebhook = { id?: string; origin?: string; event_type?: "INSERT" | "UPDATE"; pinpad_request_id?: string };
+type ClipWebhook = { id?: string; origin?: string; event_type?: string; pinpad_request_id?: string };
 
 export async function POST(request: Request) {
+  // Clip documents no signature for its webhooks, so the URL carries a secret
+  // of ours instead. It only keeps strangers out of this endpoint: the payload
+  // itself is never trusted, whatever token it arrives with.
+  const expected = process.env.CLIP_WEBHOOK_TOKEN;
+  if (expected && new URL(request.url).searchParams.get("token") !== expected) {
+    return NextResponse.json({ received: false }, { status: 401 });
+  }
+
   const body = await request.json().catch(() => ({})) as ClipWebhook;
   if (body.id && body.origin === "checkout-api") {
     // Checkout's webhook is intentionally minimal. Treat it as a signal only,
@@ -16,13 +24,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  // PinPad notifications can arrive as a full postback or as an id-only
-  // signal. In both cases, never trust the payload: fetch Clip's source of
-  // truth before finalizing a POS sale.
+  // A terminal notification says a charge changed and nothing else: no state,
+  // no amount. Clip's own answer to a GET is the only source of truth.
   const pinpadRequestId = body.pinpad_request_id ?? body.id;
   if (pinpadRequestId) {
     const payment = await getClipPinpadPayment(pinpadRequestId);
-    if (payment) await reconcileClipPinpadPayment(payment);
+    if (payment) await reconcileClipTerminalPayment(payment);
   }
 
   return NextResponse.json({ received: true });
