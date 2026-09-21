@@ -4,6 +4,8 @@ import { createServerClient } from "@/lib/supabase/server";
 import { AgendaCalendar } from "./agenda-calendar";
 import { SetupOwner } from "./setup-owner";
 import { CashStatusCard } from "./cash-status-card";
+import { OnboardingCard } from "./onboarding-card";
+import { loadOnboardingProgress } from "@/lib/onboarding-progress";
 
 const money = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -65,6 +67,7 @@ export default async function AppDashboard() {
     );
   if (!profile?.active) redirect("/app/acceso?error=not-authorized");
 
+  const granted: string[] = Array.isArray(permissions) ? permissions : [];
   const date = currentMexicoDate();
   const dayOfWeek = currentMexicoDay();
   const dayStart = `${date}T00:00:00-06:00`;
@@ -83,6 +86,7 @@ export default async function AppDashboard() {
     { data: weeklySpecialistHours },
     { data: assignments },
     { data: services },
+    onboarding,
   ] = await Promise.all([
     supabase
       .from("bookings")
@@ -139,6 +143,7 @@ export default async function AppDashboard() {
       .select("id,name,duration_minutes,buffer_after_minutes")
       .eq("active", true)
       .order("name"),
+    loadOnboardingProgress(granted, { onlyIfVisible: true }),
   ]);
 
   const bookingCount = bookings?.length ?? 0;
@@ -194,7 +199,9 @@ export default async function AppDashboard() {
     : specialists?.length
       ? "El equipo está agregado; asigna servicios y horario para abrir la agenda web."
       : "Agrega especialistas para abrir espacios de reserva.";
-  const granted: string[] = Array.isArray(permissions) ? permissions : [];
+  const showOnboarding = Boolean(
+    onboarding && onboarding.total > 0 && !onboarding.complete,
+  );
   const canManageCabin = granted.includes("settings.cabin");
   const cabinAgenda = (cabinReservations ?? []).map((reservation) => ({
     id: `cabin-${reservation.id}`,
@@ -258,6 +265,13 @@ export default async function AppDashboard() {
             + Nueva venta
           </Link>
         </header>
+        {showOnboarding && onboarding && (
+          <OnboardingCard
+            done={onboarding.done}
+            total={onboarding.total}
+            nextTitle={onboarding.next?.step.title ?? null}
+          />
+        )}
         <section className="metric-grid">
           <article>
             <span>VENTAS DE HOY</span>

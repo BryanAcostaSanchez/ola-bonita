@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { RolePermissionManager } from "../configuracion/role-permission-manager";
+import { SectionHelp } from "../configuracion/section-help";
 
 type Role = "owner" | "manager" | "specialist";
 type Member = {
@@ -397,7 +398,9 @@ export function TeamManager({
           <section className="settings-card team-invite">
             <div>
               <p className="eyebrow">NUEVO ACCESO</p>
-              <h2>Invita al equipo</h2>
+              <h2>
+                Invita al equipo <SectionHelp step="equipo" />
+              </h2>
               <p>
                 Hasta 10 personas. Cada invitación crea una cuenta individual y
                 auditable.
