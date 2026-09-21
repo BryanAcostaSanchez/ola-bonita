@@ -8249,6 +8249,107 @@ footer > a {
   }
 }
 
+/* Clip terminal: the waiting screen a cashier reads while the card is in, and
+   the settings that get a terminal to the point of accepting charges. */
+.terminal-wait {
+  display: grid;
+  gap: var(--spacing-3);
+  justify-items: center;
+  text-align: center;
+}
+.terminal-wait h2 { margin: 0; }
+.terminal-wait p { margin: 0; }
+.terminal-wait-amount {
+  color: var(--text-heading);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.terminal-wait-help {
+  background: var(--warning-soft);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  text-align: left;
+  width: 100%;
+}
+.terminal-wait-help strong { color: var(--warning); font-size: 13px; }
+.terminal-wait-help ul { color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin: 0; padding-left: 18px; }
+.terminal-wait-message { color: var(--text-secondary); font-size: 12px; }
+.terminal-wait small { color: var(--text-secondary); font-size: 11px; }
+
+.terminal-manual-escape { display: grid; gap: var(--spacing-2); margin-top: var(--spacing-3); }
+.terminal-offline-note {
+  background: var(--danger-soft);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  padding: var(--spacing-2) var(--spacing-3);
+}
+.terminal-manual-warning {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.pinpad-models { display: grid; gap: var(--spacing-3); margin-bottom: var(--spacing-4); }
+.pinpad-models h3 { color: var(--text-heading); font-size: 14px; margin: 0; }
+.pinpad-models > p { color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin: 0; }
+.pinpad-model-lists { display: grid; gap: var(--spacing-3); grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.pinpad-model-lists > div {
+  background: var(--background-secondary);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3);
+}
+.pinpad-model-lists strong { color: var(--text-heading); font-size: 12px; }
+.pinpad-model-lists ul { color: var(--text-primary); font-size: 12px; line-height: 1.6; margin: 0; padding-left: 16px; }
+.pinpad-model-lists small { color: var(--text-secondary); font-size: 11px; line-height: 1.4; }
+.pinpad-models-warning {
+  background: var(--warning-soft);
+  border-radius: var(--radius-sm);
+  color: var(--warning);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+.pinpad-live {
+  align-items: center;
+  background: var(--background-secondary);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  justify-content: space-between;
+  margin-top: var(--spacing-4);
+  padding: var(--spacing-3) var(--spacing-4);
+}
+.pinpad-live > div { display: grid; gap: var(--spacing-1); }
+.pinpad-live strong { color: var(--text-heading); font-size: 13px; }
+.pinpad-live span { color: var(--text-secondary); font-size: 12px; }
+
+.pinpad-method { display: grid; gap: var(--spacing-2); margin-top: var(--spacing-4); }
+.pinpad-method h3 { color: var(--text-heading); font-size: 14px; margin: 0; }
+.pinpad-method > p { color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin: 0; }
+.pinpad-method-options { display: flex; flex-wrap: wrap; gap: var(--spacing-3); }
+.pinpad-method-options label { align-items: center; color: var(--text-primary); display: flex; font-size: 13px; gap: var(--spacing-2); }
+.pinpad-method .new-booking { justify-self: start; }
+
+.payment-methods button small {
+  color: var(--text-secondary);
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+}
+.payment-methods button.selected small { color: inherit; }
+
 /* Primeros pasos: tutorial de configuración inicial para las dueñas. */
 .onboarding-page {
   background: var(--cream);

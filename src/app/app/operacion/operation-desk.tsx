@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { terminalUnavailableReasons } from "@/lib/clip-errors";
 import { createClient } from "@/lib/supabase/client";
 
 type Category = { id: string; name: string };
@@ -40,7 +41,19 @@ type Customer = {
   email: string | null;
 };
 type Method = "cash" | "card" | "transfer";
-type CheckoutMethod = Method | "pinpad";
+type TerminalState = "creating" | "pending" | "completed" | "failed" | "cancelled" | "requires_review";
+type TerminalIntent = {
+  id: string;
+  provider: string;
+  provider_payment_id: string | null;
+  device_id: string;
+  amount_cents: number;
+  state: TerminalState;
+  created_at: string;
+  expires_at: string | null;
+  sale_id: string | null;
+  last_error_code: string | null;
+};
 type OfflineSale = {
   id: string;
   createdAt: string;
@@ -53,14 +66,14 @@ type OfflineSale = {
   payments?: { method: Method; amount_cents: number }[];
   error?: string;
 };
-type CashSummary = { opening_float_cents: number; cash_sales_cents: number; card_sales_cents: number; transfer_sales_cents: number; online_sales_cents: number; total_sales_cents: number; cash_expenses_cents: number; total_expenses_cents: number; internal_commissions_cents: number; external_commissions_cents: number; expected_cash_cents: number };
+type CashSummary = { opening_float_cents: number; cash_sales_cents: number; card_sales_cents: number; transfer_sales_cents: number; online_sales_cents: number; terminal_confirmed_cents: number; terminal_confirmed_count: number; manual_card_cents: number; manual_card_count: number; total_sales_cents: number; cash_expenses_cents: number; total_expenses_cents: number; internal_commissions_cents: number; external_commissions_cents: number; expected_cash_cents: number };
 type CashCutResult = { expected_cash_cents: number; counted_cash_cents: number; variance_cents: number };
 
 type PosDraft = Partial<{
   cart: Record<string, number>;
   customServices: CustomService[];
   selectedCategoryId: string | null;
-  method: CheckoutMethod;
+  method: Method;
   splitPayment: boolean;
   firstSplitMethod: Method;
   secondSplitMethod: Method;
@@ -74,13 +87,26 @@ type PosDraft = Partial<{
     notes: string;
   };
 }>;
+const allMethods: Method[] = ["cash", "card", "transfer"];
+const methodLabels: Record<Method, string> = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
 const posDraftKey = "ola-bonita:pos-draft:v2";
+// A reload must not send a second charge, so the tab remembers which one it
+// was waiting on. The database is still the authority; this is only a shortcut
+// so the screen comes back instantly.
+const terminalIntentKey = "ola-bonita:terminal-intent:v1";
+const terminalPollMs = 2500;
+const terminalSlowNoticeMs = 20_000;
 const offlineSalesKey = "ola-bonita:offline-sales:v1";
 function readPosDraft(): PosDraft {
   if (typeof window === "undefined") return {};
   try {
     const current = sessionStorage.getItem(posDraftKey);
-    if (current) return JSON.parse(current);
+    if (current) {
+      const draft = JSON.parse(current) as Omit<PosDraft, "method"> & { method?: string };
+      // "pinpad" used to be a payment method of its own. It is a setting now.
+      const { method, ...rest } = draft;
+      return { ...rest, method: method === "pinpad" || !method ? undefined : method as Method };
+    }
     const previous = JSON.parse(
       sessionStorage.getItem("ola-bonita:pos-draft:v1") || "{}",
     ) as PosDraft;
@@ -159,29 +185,25 @@ function friendlyError(message: string) {
 function Methods({
   value,
   change,
-  showPinpad = false,
+  methods,
+  terminalMethods,
 }: {
-  value: CheckoutMethod;
-  change: (method: CheckoutMethod) => void;
-  showPinpad?: boolean;
+  value: Method;
+  change: (method: Method) => void;
+  methods: Method[];
+  terminalMethods: Method[];
 }) {
-  const labels: Record<CheckoutMethod, string> = {
-    cash: "Efectivo",
-    card: "Tarjeta",
-    transfer: "Transferencia",
-    pinpad: "Terminal Clip",
-  };
-
   return (
     <div className="payment-methods" aria-label="Método de pago">
-      {(Object.keys(labels) as CheckoutMethod[]).filter((method) => showPinpad || method !== "pinpad").map((method) => (
+      {methods.map((method) => (
         <button
           type="button"
           className={value === method ? "selected" : ""}
           onClick={() => change(method)}
           key={method}
         >
-          {labels[method]}
+          {methodLabels[method]}
+          {terminalMethods.includes(method) && <small>En la terminal</small>}
         </button>
       ))}
     </div>
@@ -267,6 +289,8 @@ export function OperationDesk({
   expenseCategories,
   expenseTags,
   defaultCommissionPercent,
+  enabledMethods,
+  terminalMethods,
 }: {
   services: Service[];
   specialists: Specialist[];
@@ -275,6 +299,8 @@ export function OperationDesk({
   expenseCategories: FinanceOption[];
   expenseTags: FinanceOption[];
   defaultCommissionPercent: number;
+  enabledMethods: Method[];
+  terminalMethods: Method[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const ticketRef = useRef<HTMLElement>(null);
@@ -299,7 +325,7 @@ export function OperationDesk({
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     () => initialDraft.selectedCategoryId ?? null,
   );
-  const [method, setMethod] = useState<CheckoutMethod>(
+  const [method, setMethod] = useState<Method>(
     () => initialDraft.method ?? "card",
   );
   const [splitPayment, setSplitPayment] = useState(
@@ -349,6 +375,12 @@ export function OperationDesk({
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
+  const [terminalIntent, setTerminalIntent] = useState<TerminalIntent | null>(null);
+  const [checkingTerminal, setCheckingTerminal] = useState(true);
+  const [terminalMessage, setTerminalMessage] = useState<string | null>(null);
+  const [terminalSlow, setTerminalSlow] = useState(false);
+  const [cancellingTerminal, setCancellingTerminal] = useState(false);
+  const [manualTerminalArmed, setManualTerminalArmed] = useState(false);
   const [offlineSales, setOfflineSales] = useState<OfflineSale[]>(readOfflineSales);
   useEffect(() => {
     sessionStorage.setItem(
@@ -679,20 +711,82 @@ export function OperationDesk({
     setNotice(friendlyError(error.message));
   };
 
-  const startPinpadCheckout = async () => {
+  // A POS tab stays open for hours and its token expires quietly. One refresh
+  // and one retry is the difference between a charge and a confusing error.
+  const posFetch = async (url: string, init?: RequestInit) => {
+    const request = () => fetch(url, { ...init, cache: "no-store" });
+    const response = await request();
+    if (response.status !== 401) return response;
+    const { data } = await supabase.auth.refreshSession();
+    return data.session ? await request() : response;
+  };
+
+  const ticketPayments = () => splitPayment
+    ? [
+        { method: firstSplitMethod, amount_cents: firstSplitCents },
+        { method: secondSplitMethod, amount_cents: remainingSplitCents },
+      ]
+    : [{ method, amount_cents: total }];
+  const terminalShare = () => ticketPayments().filter((payment) => terminalMethods.includes(payment.method));
+  const waitingForTerminal = terminalIntent?.state === "pending" || terminalIntent?.state === "creating";
+
+  const rememberTerminalIntent = (id: string | null) => {
+    try {
+      if (id) localStorage.setItem(terminalIntentKey, id);
+      else localStorage.removeItem(terminalIntentKey);
+    } catch {
+      // A tab with storage blocked still works: the charge lives in the database.
+    }
+  };
+
+  const applyTerminalIntent = (next: TerminalIntent) => {
+    setTerminalIntent(next);
+    if (next.state === "pending" || next.state === "creating") return;
+    rememberTerminalIntent(null);
+    setTerminalSlow(false);
+    if (next.state === "completed") {
+      clearCompletedTicket();
+      setNotice("Pago aprobado en la terminal. La venta quedó registrada.");
+      window.setTimeout(() => window.location.reload(), 900);
+      return;
+    }
+    if (next.state === "requires_review") {
+      setNotice("La terminal aprobó el pago pero la venta no se guardó. No vuelvas a cobrar: avisa a gerencia para cerrarla con ese pago.");
+      return;
+    }
+    // A declined or cancelled charge leaves the ticket exactly as it was, so
+    // the cashier can try another card or another method.
+    setNotice(next.state === "cancelled"
+      ? "El cobro se canceló. El ticket sigue abierto."
+      : "La terminal rechazó el pago. El ticket sigue abierto; intenta con otra tarjeta u otro método.");
+  };
+
+  const startTerminalCharge = async () => {
     setBusy(true);
     setNotice(null);
+    setTerminalMessage(null);
+    setTerminalSlow(false);
     try {
-      const response = await fetch("/api/pos/pinpad", {
+      const response = await posFetch("/api/pos/terminal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: ticketItems(), customerName, customerPhone }),
+        body: JSON.stringify({ items: ticketItems(), payments: ticketPayments(), customerName, customerPhone }),
       });
-      const result = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(result.error || "No pudimos enviar el cobro a la terminal.");
-      sessionStorage.removeItem(posDraftKey);
-      setNotice("Cobro enviado a la Terminal Clip. La venta se registrará sólo al aprobarse el pago.");
-      window.setTimeout(() => window.location.reload(), 1200);
+      const result = await response.json().catch(() => ({})) as { error?: string; intent_id?: string; provider_payment_id?: string; amount_cents?: number; device_id?: string };
+      if (!response.ok || !result.intent_id) throw new Error(result.error || "No pudimos enviar el cobro a la terminal.");
+      rememberTerminalIntent(result.intent_id);
+      setTerminalIntent({
+        id: result.intent_id,
+        provider: "clip",
+        provider_payment_id: result.provider_payment_id ?? null,
+        device_id: result.device_id ?? "",
+        amount_cents: result.amount_cents ?? 0,
+        state: "pending",
+        created_at: new Date().toISOString(),
+        expires_at: null,
+        sale_id: null,
+        last_error_code: null,
+      });
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "No pudimos enviar el cobro a la terminal.");
     } finally {
@@ -700,23 +794,141 @@ export function OperationDesk({
     }
   };
 
+  const cancelTerminalCharge = async () => {
+    if (!terminalIntent) return;
+    setCancellingTerminal(true);
+    setTerminalMessage(null);
+    try {
+      const response = await posFetch("/api/pos/terminal/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId: terminalIntent.id }),
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; intent?: TerminalIntent };
+      if (!response.ok) { setTerminalMessage(result.error ?? "No pudimos cancelar el cobro."); return; }
+      if (result.intent) applyTerminalIntent(result.intent);
+    } catch {
+      setTerminalMessage("No pudimos cancelar el cobro. Revisa tu conexión.");
+    } finally {
+      setCancellingTerminal(false);
+    }
+  };
+
+  // The charge is read back from Clip on every tick: the browser never decides
+  // that a card was approved.
+  useEffect(() => {
+    if (!terminalIntent || terminalIntent.state !== "pending") return;
+    let stopped = false;
+    const check = async () => {
+      try {
+        const response = await posFetch(`/api/pos/terminal/status?intent=${encodeURIComponent(terminalIntent.id)}`);
+        const result = await response.json().catch(() => ({})) as { error?: string; message?: string; intent?: TerminalIntent };
+        if (stopped) return;
+        if (!response.ok) { setTerminalMessage(result.error ?? null); return; }
+        if (result.message) setTerminalMessage(result.message);
+        if (result.intent) applyTerminalIntent(result.intent);
+      } catch {
+        if (!stopped) setTerminalMessage("Perdimos la conexión con el servidor. El cobro sigue vivo en la terminal.");
+      }
+    };
+    void check();
+    const timer = window.setInterval(() => void check(), terminalPollMs);
+    return () => { stopped = true; window.clearInterval(timer); };
+  // Restarting the poll on every render would hammer the endpoint; the charge
+  // and its state are what decide whether we are still waiting.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [terminalIntent?.id, terminalIntent?.state]);
+
+  // "Enviando a la terminal…" forever helps nobody: after twenty seconds the
+  // screen says what is usually wrong instead of spinning.
+  useEffect(() => {
+    if (!waitingForTerminal) return;
+    const started = terminalIntent ? new Date(terminalIntent.created_at).getTime() : Date.now();
+    const remaining = Math.max(0, terminalSlowNoticeMs - (Date.now() - started));
+    const timer = window.setTimeout(() => setTerminalSlow(true), remaining);
+    return () => window.clearTimeout(timer);
+  }, [waitingForTerminal, terminalIntent]);
+
+  useEffect(() => {
+    if (!waitingForTerminal) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [waitingForTerminal]);
+
+  // A tablet that dims mid-charge hides the only screen the cashier is reading.
+  useEffect(() => {
+    if (!waitingForTerminal || !("wakeLock" in navigator)) return;
+    let sentinel: WakeLockSentinel | null = null;
+    let released = false;
+    navigator.wakeLock.request("screen").then((lock) => {
+      if (released) { void lock.release(); return; }
+      sentinel = lock;
+    }).catch(() => {
+      // Denied or unsupported: the charge is unaffected.
+    });
+    return () => { released = true; void sentinel?.release().catch(() => {}); };
+  }, [waitingForTerminal]);
+
+  // The terminal keeps the charge through a reload or a closed tab, so the tab
+  // asks what is already running before it can send anything new.
+  useEffect(() => {
+    let stopped = false;
+    void (async () => {
+      try {
+        const response = await posFetch("/api/pos/terminal");
+        if (!response.ok) return;
+        const { intent } = await response.json().catch(() => ({ intent: null })) as { intent: TerminalIntent | null };
+        if (stopped) return;
+        if (intent) setTerminalIntent(intent);
+        else rememberTerminalIntent(null);
+      } catch {
+        // Offline on load: the queue and the ticket still work.
+      } finally {
+        if (!stopped) setCheckingTerminal(false);
+      }
+    })();
+    return () => { stopped = true; };
+  // Only on mount: this is what recovers the screen after a reload.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When the terminal or the internet fails, the charge still has to happen.
+  // Recording it by hand is deliberate and two steps, and the payment is saved
+  // with no provider, so the cash cut never counts it as confirmed by Clip.
+  const chargeByHandOnDevice = () => {
+    if (!manualTerminalArmed) { setManualTerminalArmed(true); return; }
+    setManualTerminalArmed(false);
+    if (!navigator.onLine) { queueOfflineSale("manual", splitPayment ? firstSplitMethod : method); return; }
+    void submitManualSale();
+  };
+
   const checkout = () => {
+    if (waitingForTerminal) return;
     if (!cashSession && ticketRequiresOpenCash()) {
       setNotice("Abre caja para registrar ventas. Tu ticket se conservará mientras la abres.");
       setOpening("");
       setCashModal("open");
       return;
     }
-    if (method === "pinpad") {
-      if (!navigator.onLine) {
-        queueOfflineSale("clip_review", "card");
-        return;
-      }
-      void startPinpadCheckout();
+    if (splitPayment && !splitIsValid) {
+      setNotice("Los dos importes deben sumar exactamente el total del ticket.");
+      return;
+    }
+    const terminalParts = terminalShare();
+    if (terminalParts.length > 1) {
+      setNotice("Sólo una parte del ticket puede cobrarse en la terminal. Cambia el otro método.");
+      return;
+    }
+    if (terminalParts.length === 1) {
+      // Without internet no charge can reach the terminal, so the ticket is
+      // held for review instead of claiming a confirmation that never existed.
+      if (!navigator.onLine) { queueOfflineSale("clip_review", terminalParts[0].method); return; }
+      void startTerminalCharge();
       return;
     }
     if (!navigator.onLine) {
-      queueOfflineSale("manual", splitPayment ? firstSplitMethod : method as Method);
+      queueOfflineSale("manual", splitPayment ? firstSplitMethod : method);
       return;
     }
     void submitManualSale();
@@ -1348,7 +1560,7 @@ export function OperationDesk({
               </button>
             </div>
             {!splitPayment ? (
-              <Methods value={method} change={setMethod} showPinpad />
+              <Methods value={method} change={setMethod} methods={enabledMethods} terminalMethods={terminalMethods} />
             ) : (
               <div className="split-payment">
                 <div>
@@ -1358,9 +1570,11 @@ export function OperationDesk({
                       setFirstSplitMethod(event.target.value as Method)
                     }
                   >
-                    <option value="cash">Efectivo</option>
-                    <option value="card">Tarjeta</option>
-                    <option value="transfer">Transferencia</option>
+                    {enabledMethods.map((option) => (
+                      <option value={option} key={option}>
+                        {methodLabels[option]}{terminalMethods.includes(option) ? " (en la terminal)" : ""}
+                      </option>
+                    ))}
                   </select>
                   <input
                     inputMode="decimal"
@@ -1378,9 +1592,11 @@ export function OperationDesk({
                       setSecondSplitMethod(event.target.value as Method)
                     }
                   >
-                    <option value="cash">Efectivo</option>
-                    <option value="card">Tarjeta</option>
-                    <option value="transfer">Transferencia</option>
+                    {enabledMethods.map((option) => (
+                      <option value={option} key={option}>
+                        {methodLabels[option]}{terminalMethods.includes(option) ? " (en la terminal)" : ""}
+                      </option>
+                    ))}
                   </select>
                   <output>
                     Resto: {money.format(remainingSplitCents / 100)}
@@ -1394,11 +1610,26 @@ export function OperationDesk({
             <button
               type="button"
               className="primary-operation"
-              disabled={!total || busy || (splitPayment && !splitIsValid)}
+              disabled={!total || busy || waitingForTerminal || checkingTerminal || (splitPayment && !splitIsValid)}
               onClick={checkout}
             >
-              Cobrar {money.format(total / 100)}
+              {waitingForTerminal ? "Esperando a la terminal…" : checkingTerminal ? "Revisando la terminal…" : `Cobrar ${money.format(total / 100)}`}
             </button>
+            {terminalShare().length === 1 && !waitingForTerminal && (
+              <div className="terminal-manual-escape">
+                {!online && <p className="terminal-offline-note">Sin internet no se puede enviar el cobro a la terminal. Cóbralo en el aparato y regístralo a mano.</p>}
+                <button type="button" className="secondary-button" disabled={!total || busy} onClick={chargeByHandOnDevice}>
+                  {manualTerminalArmed ? "Sí, ya cobré en el aparato" : "Cobrar a mano en el aparato"}
+                </button>
+                {manualTerminalArmed && (
+                  <p className="terminal-manual-warning">
+                    Esto guarda la venta sin confirmación de Clip. Hazlo sólo si ya pasaste la tarjeta en la terminal y tienes el recibo.
+                    {" "}
+                    <button type="button" className="text-link" onClick={() => setManualTerminalArmed(false)}>Cancelar</button>
+                  </p>
+                )}
+              </div>
+            )}
           </section>
           <aside className="operation-stack">
             <section className="operation-card">
@@ -1531,8 +1762,10 @@ export function OperationDesk({
               <Methods
                 value={expense.method}
                 change={(selectedMethod) =>
-                  setExpense({ ...expense, method: selectedMethod as Method })
+                  setExpense({ ...expense, method: selectedMethod })
                 }
+                methods={allMethods}
+                terminalMethods={[]}
               />
               <button
                 type="button"
@@ -1571,7 +1804,7 @@ export function OperationDesk({
                 : cashModal === "adjust" ? "Registra el fondo inicial" : cashModal === "close" ? "Resumen del corte" : "Corte registrado"}
             </h2>
             <p>{cashModal === "close" ? "Revisa los importes del turno y después cuenta el efectivo físico." : cashModal === "result" ? "La caja quedó cerrada y este resultado queda guardado en el corte." : "Cuenta el efectivo físico que dejas en caja antes de comenzar a cobrar."}</p>
-            {cashModal === "close" && cashSummary && <div className="cash-cut-summary"><div><span>Ventas del turno</span><strong>{money.format(cashSummary.total_sales_cents / 100)}</strong></div><div><span>Tarjeta</span><strong>{money.format(cashSummary.card_sales_cents / 100)}</strong></div><div><span>Transferencia</span><strong>{money.format(cashSummary.transfer_sales_cents / 100)}</strong></div><div><span>Pago online</span><strong>{money.format(cashSummary.online_sales_cents / 100)}</strong></div><div><span>Fondo inicial</span><strong>{money.format(cashSummary.opening_float_cents / 100)}</strong></div><div><span>Efectivo cobrado</span><strong>{money.format(cashSummary.cash_sales_cents / 100)}</strong></div><div><span>Gastos en efectivo</span><strong>− {money.format(cashSummary.cash_expenses_cents / 100)}</strong></div><div className="cash-cut-expected"><span>Efectivo esperado</span><strong>{money.format(cashSummary.expected_cash_cents / 100)}</strong></div><div><span>Comisiones generadas</span><strong>{money.format((cashSummary.internal_commissions_cents + cashSummary.external_commissions_cents) / 100)}</strong><small>Equipo: {money.format(cashSummary.internal_commissions_cents / 100)} · Externos: {money.format(cashSummary.external_commissions_cents / 100)}</small></div></div>}
+            {cashModal === "close" && cashSummary && <div className="cash-cut-summary"><div><span>Ventas del turno</span><strong>{money.format(cashSummary.total_sales_cents / 100)}</strong></div><div><span>Tarjeta confirmada por Clip</span><strong>{money.format(cashSummary.terminal_confirmed_cents / 100)}</strong><small>{cashSummary.terminal_confirmed_count} operación{cashSummary.terminal_confirmed_count === 1 ? "" : "es"}</small></div><div><span>Tarjeta cobrada a mano</span><strong>{money.format(cashSummary.manual_card_cents / 100)}</strong><small>{cashSummary.manual_card_count} operación{cashSummary.manual_card_count === 1 ? "" : "es"} · cuádralas contra el reporte de la app de Clip</small></div><div><span>Transferencia</span><strong>{money.format(cashSummary.transfer_sales_cents / 100)}</strong></div><div><span>Pago online</span><strong>{money.format(cashSummary.online_sales_cents / 100)}</strong></div><div><span>Fondo inicial</span><strong>{money.format(cashSummary.opening_float_cents / 100)}</strong></div><div><span>Efectivo cobrado</span><strong>{money.format(cashSummary.cash_sales_cents / 100)}</strong></div><div><span>Gastos en efectivo</span><strong>− {money.format(cashSummary.cash_expenses_cents / 100)}</strong></div><div className="cash-cut-expected"><span>Efectivo esperado</span><strong>{money.format(cashSummary.expected_cash_cents / 100)}</strong></div><div><span>Comisiones generadas</span><strong>{money.format((cashSummary.internal_commissions_cents + cashSummary.external_commissions_cents) / 100)}</strong><small>Equipo: {money.format(cashSummary.internal_commissions_cents / 100)} · Externos: {money.format(cashSummary.external_commissions_cents / 100)}</small></div></div>}
             {cashModal !== "result" && <label>
               {cashModal === "close" ? "Efectivo contado" : "Monto inicial"}
               <input
@@ -1606,6 +1839,43 @@ export function OperationDesk({
                 {cashModal === "open" ? "Abrir caja" : cashModal === "adjust" ? "Guardar fondo" : cashModal === "close" ? "Confirmar corte" : "Listo"}
               </button>
             </div>
+          </section>
+        </div>
+      )}
+      {(waitingForTerminal || terminalIntent?.state === "requires_review") && (
+        <div className="cash-modal-backdrop" role="presentation">
+          <section className="cash-modal terminal-wait" role="dialog" aria-modal="true" aria-labelledby="terminal-wait-title">
+            {terminalIntent?.state === "requires_review" ? (
+              <>
+                <h2 id="terminal-wait-title">El pago se aprobó pero la venta no se guardó</h2>
+                <p>
+                  La terminal cobró {money.format(terminalIntent.amount_cents / 100)}. No vuelvas a cobrar este ticket:
+                  avisa a gerencia para cerrar la venta con ese pago.
+                </p>
+                <button type="button" className="secondary-button" onClick={() => { rememberTerminalIntent(null); setTerminalIntent(null); }}>
+                  Entendido
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 id="terminal-wait-title">Pasa la tarjeta en la terminal</h2>
+                <p className="terminal-wait-amount">{money.format((terminalIntent?.amount_cents ?? 0) / 100)}</p>
+                <p>Terminal {terminalIntent?.device_id}. La venta se registra sola en cuanto el pago se apruebe.</p>
+                {terminalSlow && (
+                  <div className="terminal-wait-help">
+                    <strong>La terminal no ha respondido. Suele ser una de estas:</strong>
+                    <ul>
+                      {terminalUnavailableReasons.map((reason) => <li key={reason}>{reason}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {terminalMessage && <p className="terminal-wait-message">{terminalMessage}</p>}
+                <button type="button" className="secondary-button" disabled={cancellingTerminal} onClick={() => void cancelTerminalCharge()}>
+                  {cancellingTerminal ? "Cancelando…" : "Cancelar cobro"}
+                </button>
+                <small>Sólo se puede cancelar mientras la tarjeta no se haya pasado.</small>
+              </>
+            )}
           </section>
         </div>
       )}

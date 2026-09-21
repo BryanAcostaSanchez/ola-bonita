@@ -91,6 +91,8 @@ métodos cobras en el mostrador.
 2. Elige qué pasa con ese anticipo cuando una clienta cancela o no se presenta.
 3. Marca los métodos de pago que quieres tener disponibles al cobrar.
 4. Conecta Clip con la API Key y la clave secreta de tu panel de Clip.
+5. Si cobras con una terminal Clip, regístrala y elige qué método de pago le
+   manda el cobro.
 
 > Las credenciales de Clip se guardan cifradas y no se vuelven a mostrar. Ténlas
 > a la mano antes de empezar, porque Clip sólo las enseña una vez.
@@ -137,11 +139,11 @@ servicio asignado, o ese día no está abierto en la agenda web.
 ## Cómo sabe la app qué pasos faltan
 
 `src/lib/onboarding-progress.ts` lee la configuración real del negocio en cada
-carga. Sólo dos pasos se detectan solos, porque son los únicos con una señal que
-no viene precargada: **Tu equipo** (hay alguien más con acceso, servicios
-asignados y horario activo) y **Cobros y anticipos** (Clip guardado y métodos de
-pago elegidos). **Renta de cabina** se detecta cuando el espacio está activo,
-con horario y precio.
+carga. Sólo tres pasos se detectan solos, porque son los únicos con una señal
+que no viene precargada: **Tu equipo** (hay alguien más con acceso, servicios
+asignados y horario activo), **Cobros y anticipos** (Clip guardado y métodos de
+pago elegidos) y **Renta de cabina** (el espacio está activo, con horario y
+precio).
 
 Los demás pasos llegan con datos precargados en las migraciones, así que la app
 no puede distinguir entre «ya lo revisé» y «nunca lo toqué». Ahí el tutorial

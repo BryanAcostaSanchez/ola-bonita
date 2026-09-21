@@ -106,6 +106,7 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
       "Elige qué pasa con ese anticipo cuando una clienta cancela o no se presenta.",
       "Marca los métodos de pago que quieres tener disponibles al cobrar.",
       "Conecta Clip con la API Key y la clave secreta de tu panel de Clip.",
+      "Si cobras con una terminal Clip, regístrala y elige qué método de pago le manda el cobro.",
     ],
     tip: "Las credenciales de Clip se guardan cifradas y no se vuelven a mostrar. Ténlas a la mano antes de empezar, porque Clip sólo las enseña una vez.",
     path: "/app/configuracion/pagos",

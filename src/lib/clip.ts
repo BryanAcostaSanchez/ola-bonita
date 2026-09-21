@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ClipApiError } from "@/lib/clip-errors";
 
 export type ClipCredentials = {
   api_key: string;
@@ -32,6 +33,32 @@ export type ClipPinpadPayment = {
   receipt_no?: string;
 };
 
+export type ClipTerminalDevice = {
+  serial_number: string;
+  status: string;
+  merchant_id?: string;
+  version?: string;
+  expired_at?: string;
+  updated_at?: string;
+};
+
+// Clip documents APPROVED/REJECTED/CANCELED in its SDK and COMPLETED/FAILED in
+// its web reference. The two disagree, so anything this does not recognise is
+// treated as still running: a sale is never closed on a state we cannot read.
+export type TerminalChargeState = "approved" | "rejected" | "cancelled" | "pending";
+
+const approvedStates = new Set(["APPROVED", "COMPLETED", "SUCCESS", "SUCCEEDED"]);
+const rejectedStates = new Set(["REJECTED", "DECLINED", "FAILED", "ERROR", "EXPIRED"]);
+const cancelledStates = new Set(["CANCELED", "CANCELLED", "VOIDED"]);
+
+export function readTerminalChargeState(status: string | null | undefined): TerminalChargeState {
+  const value = (status ?? "").trim().toUpperCase();
+  if (approvedStates.has(value)) return "approved";
+  if (rejectedStates.has(value)) return "rejected";
+  if (cancelledStates.has(value)) return "cancelled";
+  return "pending";
+}
+
 const clipApi = "https://api.payclip.com/v2/checkout";
 const clipPinpadApi = "https://api.payclip.io/f2f/pinpad/v1";
 
@@ -48,6 +75,19 @@ export async function isClipConfigured() {
 
 function authorization(credentials: ClipCredentials) {
   return `Basic ${Buffer.from(`${credentials.api_key}:${credentials.secret_key}`).toString("base64")}`;
+}
+
+async function clipError(response: Response) {
+  const body = await response.json().catch(() => null) as { code?: string; message?: string; name?: string } | null;
+  return new ClipApiError(body?.message || response.statusText, body?.code ?? null, response.status);
+}
+
+function terminalWebhookUrl(appUrl: string) {
+  const token = process.env.CLIP_WEBHOOK_TOKEN;
+  // Clip documents no signature for its webhooks, so the only thing that makes
+  // this URL hard to guess is a secret we put in it ourselves. The payload is
+  // still never trusted: every notification is read back from Clip.
+  return token ? `${appUrl}/api/webhooks/clip?token=${encodeURIComponent(token)}` : `${appUrl}/api/webhooks/clip`;
 }
 
 function urls(path: string) {
@@ -110,7 +150,7 @@ async function createClipLink({
           phone: customer.phone ? Number(customer.phone.replace(/\D/g, "")) || undefined : undefined,
         },
       },
-      webhook_url: `${appUrl}/api/webhooks/clip`,
+      webhook_url: terminalWebhookUrl(appUrl),
       custom_payment_options: { payment_method_types: ["debit", "credit"] },
     }),
     cache: "no-store",
@@ -151,6 +191,17 @@ export async function createCabinClipCheckout(reservation: {
   });
 }
 
+// The PinPad API has no sandbox: Clip states it runs in production only, so
+// test credentials would fail with an error nobody can act on.
+async function requireTerminalCredentials() {
+  const credentials = await getClipCredentials();
+  if (!credentials) throw new ClipApiError("Conecta Clip en Configuración → Pagos antes de cobrar en la terminal.", null, 400);
+  if (credentials.mode !== "production") {
+    throw new ClipApiError("La terminal Clip sólo funciona con credenciales de Producción; Clip no ofrece ambiente de pruebas.", null, 400);
+  }
+  return credentials;
+}
+
 export async function getClipPaymentLink(paymentRequestId: string, existingCredentials?: ClipCredentials) {
   const credentials = existingCredentials ?? await getClipCredentials();
   if (!credentials) return null;
@@ -171,17 +222,18 @@ export async function createClipPinpadPayment({
   reference: string;
   serialNumber: string;
 }) {
-  const credentials = await getClipCredentials();
-  if (!credentials || credentials.mode !== "production") return null;
+  const credentials = await requireTerminalCredentials();
   const { appUrl } = urls("");
   const response = await fetch(`${clipPinpadApi}/payment`, {
     method: "POST",
     headers: { Authorization: authorization(credentials), "Content-Type": "application/json" },
     body: JSON.stringify({
+      // Clip takes pesos with decimals here, not cents. Cents stay integers
+      // everywhere on our side and are only converted at this boundary.
       amount: (amountCents / 100).toFixed(2),
       reference,
       serial_number_pos: serialNumber,
-      webhook_url: `${appUrl}/api/webhooks/clip`,
+      webhook_url: terminalWebhookUrl(appUrl),
       preferences: {
         is_tip_enabled: false,
         is_msi_enabled: false,
@@ -195,9 +247,9 @@ export async function createClipPinpadPayment({
     }),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error("Clip could not start the terminal payment");
+  if (!response.ok) throw await clipError(response);
   const payment = await response.json() as ClipPinpadPayment;
-  if (!payment.pinpad_request_id) throw new Error("Clip returned an incomplete terminal payment");
+  if (!payment.pinpad_request_id) throw new ClipApiError("Clip no devolvió un identificador de cobro", null, response.status);
   return payment;
 }
 
@@ -210,4 +262,41 @@ export async function getClipPinpadPayment(pinpadRequestId: string, existingCred
   });
   if (!response.ok) return null;
   return await response.json() as ClipPinpadPayment;
+}
+
+// Clip only cancels a charge the terminal has not picked up yet. Once the card
+// is in, it has to be cancelled on the device itself.
+export async function cancelClipPinpadPayment(pinpadRequestId: string) {
+  const credentials = await requireTerminalCredentials();
+  const response = await fetch(`${clipPinpadApi}/payment/${encodeURIComponent(pinpadRequestId)}`, {
+    method: "DELETE",
+    headers: { Authorization: authorization(credentials) },
+    cache: "no-store",
+  });
+  if (!response.ok && response.status !== 404) throw await clipError(response);
+  return response.ok;
+}
+
+// A charge nobody is waiting on any more blocks every following one, because a
+// Clip terminal only holds one at a time. This clears whatever it still has.
+export async function cancelClipPinpadPaymentsByDevice(serialNumber: string) {
+  const credentials = await requireTerminalCredentials();
+  const response = await fetch(`${clipPinpadApi}/payment/serial-number/${encodeURIComponent(serialNumber)}`, {
+    method: "DELETE",
+    headers: { Authorization: authorization(credentials) },
+    cache: "no-store",
+  });
+  if (!response.ok && response.status !== 404) throw await clipError(response);
+  return response.ok;
+}
+
+export async function getClipPinpadDevices() {
+  const credentials = await requireTerminalCredentials();
+  const response = await fetch(`${clipPinpadApi}/devices/status`, {
+    headers: { Authorization: authorization(credentials) },
+    cache: "no-store",
+  });
+  if (!response.ok) throw await clipError(response);
+  const devices = await response.json() as ClipTerminalDevice[] | null;
+  return Array.isArray(devices) ? devices : [];
 }
