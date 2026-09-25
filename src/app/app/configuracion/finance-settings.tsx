@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Hint } from "./hint";
+import { SectionHelp } from "./section-help";
 
 type Item = {
   id: string;
@@ -224,7 +225,9 @@ export function FinanceSettings({
     <section className="finance-settings">
       <header>
         <p className="eyebrow">FINANZAS</p>
-        <h1>Gastos, categorías y etiquetas</h1>
+        <h1>
+          Gastos, categorías y etiquetas <SectionHelp step="finanzas" />
+        </h1>
         <p>
           Las categorías aparecen como un menú al registrar un gasto. Las
           etiquetas permiten clasificar cada movimiento como en Spendee.

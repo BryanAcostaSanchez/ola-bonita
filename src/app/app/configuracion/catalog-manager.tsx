@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Hint } from "./hint";
+import { SectionHelp } from "./section-help";
 
 type Category = {
   id: string;
@@ -373,6 +374,7 @@ export function CatalogManager({
           <h1>Catálogo de servicios</h1>
           <p>Edita lo que se vende, se agenda y se muestra al público.</p>
         </div>
+        <SectionHelp step="catalogo" />
       </header>
       <div className="catalog-columns catalog-actions">
         <section className="settings-card catalog-card">
