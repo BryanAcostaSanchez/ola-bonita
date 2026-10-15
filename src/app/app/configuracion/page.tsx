@@ -8,6 +8,7 @@ import { PaymentProviderSetup } from "./payment-provider-setup";
 import { AccountSettings } from "./account-settings";
 import { CatalogManager } from "./catalog-manager";
 import { WebAgendaSettings } from "./web-agenda-settings";
+import { WhatsappAutoreply } from "./whatsapp-autoreply";
 import { CategoryBookingSettings } from "./category-booking-settings";
 import { FinanceSettings } from "./finance-settings";
 import { CabinSettings } from "../cabina/settings";
@@ -275,6 +276,7 @@ export async function SettingsPageContent({ section }: { section: string }) {
       {activeSection === "agenda" && (
         <>
           <WebAgendaSettings settings={settings} hours={businessHours ?? []} />
+          <WhatsappAutoreply />
           <CategoryBookingSettings
             categories={(categories ?? [])
               .filter((category) => category.active)

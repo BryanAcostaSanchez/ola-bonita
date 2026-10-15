@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeTerminalSerial } from "@/lib/terminal-serial";
 
 type Method = "cash" | "card" | "transfer";
 type SetupStatus = "not_started" | "requested" | "app_installed" | "ready_to_test";
@@ -16,6 +17,7 @@ export type PaymentTerminal = {
   last_seen_at: string | null;
 };
 type LiveTerminal = PaymentTerminal & { live_state: string | null; live_label: string | null };
+type ClipDevice = { serial_number: string; status: string };
 
 const methodLabels: Record<Method, string> = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
 const setupLabels: Record<SetupStatus, string> = {
@@ -31,6 +33,22 @@ const setupLabels: Record<SetupStatus, string> = {
 const compatibleModels = ["Clip Total 3", "Clip Ultra", "Clip PinPad", "Clip Stand 2"];
 const wakeupModels = ["Clip Pro 2", "Clip Total", "Clip Total 2"];
 const incompatibleModels = ["Clip Plus", "Clip Mini", "Clip Lector Bluetooth"];
+
+const deviceStateLabels: Record<string, string> = {
+  active: "Lista para cobrar",
+  inactive: "Desconectada",
+  expired: "Sin reportarse",
+};
+
+// Supabase answers in English; whoever is setting up the terminal needs to know
+// what to do about it.
+function terminalSaveError(error: { code?: string; message: string }) {
+  if (error.code === "42501" || /row-level security/i.test(error.message)) {
+    return "Tu usuario no tiene permiso para guardar la terminal. Pide a la dueña que te dé el permiso de Pagos en Configuración → Equipo y nómina.";
+  }
+  if (error.code === "23505") return "Esa terminal ya está registrada.";
+  return `No se pudo guardar la terminal: ${error.message}`;
+}
 
 export function ClipTerminalSettings({
   settingsId,
@@ -54,6 +72,7 @@ export function ClipTerminalSettings({
     () => (Object.keys(methodProviders).find((method) => methodProviders[method]) as Method | undefined) ?? "",
   );
   const [live, setLive] = useState<LiveTerminal[]>([]);
+  const [clipDevices, setClipDevices] = useState<ClipDevice[]>([]);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState("");
@@ -66,9 +85,10 @@ export function ClipTerminalSettings({
     setLiveError(null);
     try {
       const response = await fetch("/api/pos/terminal/devices", { cache: "no-store" });
-      const result = await response.json().catch(() => ({})) as { terminals?: LiveTerminal[]; error?: string };
+      const result = await response.json().catch(() => ({})) as { terminals?: LiveTerminal[]; devices?: ClipDevice[]; error?: string };
       if (!response.ok) { setLiveError(result.error ?? "No pudimos consultar el estado de la terminal."); return; }
       setLive(result.terminals ?? []);
+      setClipDevices(result.devices ?? []);
       if (result.error) setLiveError(result.error);
     } catch {
       setLiveError("No pudimos consultar el estado de la terminal.");
@@ -84,19 +104,20 @@ export function ClipTerminalSettings({
 
   async function saveTerminal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const serial = terminal.serial.trim();
+    const serial = normalizeTerminalSerial(terminal.serial);
     if (terminal.status !== "not_started" && !serial) {
       setMessage("Agrega el número de serie de la terminal antes de avanzar su estado.");
       return;
     }
     setBusy(true);
     setMessage("");
+    setTerminal((current) => ({ ...current, serial }));
     const row = { provider: "clip", device_id: serial, label: terminal.label.trim() || null, active: true, setup_status: terminal.status, updated_at: new Date().toISOString() };
     const { error } = existing
       ? await supabase.from("payment_terminals").update(row).eq("id", existing.id)
       : await supabase.from("payment_terminals").insert(row);
     setBusy(false);
-    if (error) { setMessage(error.message); return; }
+    if (error) { setMessage(terminalSaveError(error)); return; }
     setMessage(terminal.status === "ready_to_test"
       ? "Terminal lista. Falta marcar qué método de pago la usa para que el POS le mande cobros."
       : "Preparación de la terminal guardada.");
@@ -118,7 +139,7 @@ export function ClipTerminalSettings({
   }
 
   async function copyRequest() {
-    const serial = terminal.serial.trim() || "[escribe aquí el número de serie]";
+    const serial = normalizeTerminalSerial(terminal.serial) || "[escribe aquí el número de serie]";
     const text = `Hola, escribo de Ola Bonita.
 
 Quiero habilitar la API de PinPad para cobrar desde nuestro punto de venta web hacia una terminal física Clip.
@@ -141,7 +162,9 @@ Gracias.`;
     }
   }
 
-  const liveTerminal = live.find((item) => item.device_id === terminal.serial.trim()) ?? null;
+  const typedSerial = normalizeTerminalSerial(terminal.serial);
+  const liveTerminal = live.find((item) => normalizeTerminalSerial(item.device_id) === typedSerial) ?? null;
+  const typedSerialUnknown = Boolean(typedSerial) && clipDevices.length > 0 && !clipDevices.some((device) => device.serial_number === typedSerial);
   const readyButUnused = existing?.setup_status === "ready_to_test" && !terminalMethod;
 
   return (
@@ -226,6 +249,27 @@ Gracias.`;
             <button className="new-booking" disabled={busy}>Guardar terminal</button>
           </div>
         </form>
+      </div>
+
+      <div className="pinpad-devices">
+        <strong>Terminales que Clip ve en tu cuenta</strong>
+        {clipDevices.length > 0 ? (
+          <>
+            <ul>
+              {clipDevices.map((device) => (
+                <li key={device.serial_number}>
+                  <span>{device.serial_number} · {deviceStateLabels[device.status] ?? "Estado desconocido"}</span>
+                  {device.serial_number === typedSerial
+                    ? <small>Es la que tienes escrita</small>
+                    : <button type="button" className="secondary-button" onClick={() => setTerminal({ ...terminal, serial: device.serial_number })}>Usar esta</button>}
+                </li>
+              ))}
+            </ul>
+            {typedSerialUnknown && <small>El número de serie escrito no coincide con ninguna de estas. Elige la tuya con «Usar esta» y guarda la terminal.</small>}
+          </>
+        ) : (
+          <span>{liveError ?? "Clip todavía no reporta ninguna terminal. Aparece aquí cuando Clip instala la app Clip PinPad en el lector y lo enciendes con internet."}</span>
+        )}
       </div>
 
       <div className="pinpad-live">

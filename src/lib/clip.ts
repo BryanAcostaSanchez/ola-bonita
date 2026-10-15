@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ClipApiError } from "@/lib/clip-errors";
+import { normalizeTerminalSerial } from "@/lib/terminal-serial";
 
 export type ClipCredentials = {
   api_key: string;
@@ -297,6 +298,23 @@ export async function getClipPinpadDevices() {
     cache: "no-store",
   });
   if (!response.ok) throw await clipError(response);
-  const devices = await response.json() as ClipTerminalDevice[] | null;
-  return Array.isArray(devices) ? devices : [];
+  const body = await response.json().catch(() => null) as unknown;
+  return readClipDevices(body);
+}
+
+// Clip's reference shows a bare list, but its responses elsewhere wrap lists in
+// an object. Reading only the bare list made every terminal look unknown when
+// the list came wrapped, so both shapes are accepted.
+function readClipDevices(body: unknown): ClipTerminalDevice[] {
+  const wrapped = body && typeof body === "object" && !Array.isArray(body)
+    ? (body as Record<string, unknown>).devices ?? (body as Record<string, unknown>).data ?? (body as Record<string, unknown>).results
+    : body;
+  if (!Array.isArray(wrapped)) return [];
+  return wrapped
+    .map((item) => {
+      const device = (item ?? {}) as Record<string, unknown>;
+      const serial = device.serial_number ?? device.serialNumber ?? device.serial_number_pos ?? device.serial;
+      return { ...device, serial_number: normalizeTerminalSerial(typeof serial === "string" ? serial : ""), status: typeof device.status === "string" ? device.status : "unknown" } as ClipTerminalDevice;
+    })
+    .filter((device) => device.serial_number);
 }

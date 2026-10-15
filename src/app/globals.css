@@ -8335,6 +8335,23 @@ footer > a {
 .pinpad-live strong { color: var(--text-heading); font-size: 13px; }
 .pinpad-live span { color: var(--text-secondary); font-size: 12px; }
 
+.pinpad-devices {
+  background: var(--background-secondary);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-4);
+  padding: var(--spacing-3) var(--spacing-4);
+}
+.pinpad-devices strong { color: var(--text-heading); font-size: 13px; }
+.pinpad-devices > span, .pinpad-devices small { color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.pinpad-devices ul { display: grid; gap: var(--spacing-2); list-style: none; margin: 0; padding: 0; }
+.pinpad-devices li { align-items: center; display: flex; flex-wrap: wrap; gap: var(--spacing-2); justify-content: space-between; }
+.pinpad-devices li span { color: var(--text-primary); font-size: 13px; overflow-wrap: anywhere; }
+
+.whatsapp-autoreply textarea { font: inherit; font-size: 13px; line-height: 1.5; min-height: 150px; resize: vertical; width: 100%; }
+.whatsapp-autoreply ol { color: var(--text-secondary); display: grid; font-size: 13px; gap: var(--spacing-1); line-height: 1.5; margin: 0; padding-left: 1.2em; }
+
 .pinpad-method { display: grid; gap: var(--spacing-2); margin-top: var(--spacing-4); }
 .pinpad-method h3 { color: var(--text-heading); font-size: 14px; margin: 0; }
 .pinpad-method > p { color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin: 0; }

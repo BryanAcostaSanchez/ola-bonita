@@ -3,6 +3,7 @@ import { getClipPinpadDevices } from "@/lib/clip";
 import { clipErrorMessage } from "@/lib/clip-errors";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePosSession } from "@/lib/terminal-session";
+import { normalizeTerminalSerial } from "@/lib/terminal-serial";
 
 export const runtime = "nodejs";
 
@@ -29,16 +30,16 @@ export async function GET() {
     const admin = createAdminClient();
     const seen = new Map(devices.map((device) => [device.serial_number, (device.status ?? "unknown").toLowerCase()]));
     await Promise.all((terminals ?? [])
-      .filter((terminal) => seen.has(terminal.device_id))
+      .filter((terminal) => seen.has(normalizeTerminalSerial(terminal.device_id)))
       .map((terminal) => admin.rpc("record_terminal_device_state", {
         p_provider: terminal.provider,
         p_device_id: terminal.device_id,
-        p_state: seen.get(terminal.device_id) ?? "unknown",
+        p_state: seen.get(normalizeTerminalSerial(terminal.device_id)) ?? "unknown",
       })));
 
     return NextResponse.json({
       terminals: (terminals ?? []).map((terminal) => {
-        const state = seen.get(terminal.device_id) ?? null;
+        const state = seen.get(normalizeTerminalSerial(terminal.device_id)) ?? null;
         return {
           ...terminal,
           live_state: state,
